@@ -28,7 +28,11 @@ func contextCmd(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// Display current working memory
-	fmt.Printf("Focus: %s\n", wm.Focus)
+	if wm.Focus == "" {
+		fmt.Println("Focus: (empty)")
+	} else {
+		fmt.Printf("Focus: %s\n", wm.Focus)
+	}
 	fmt.Printf("ID: %s\n", wm.ID)
 	fmt.Printf("Created: %s\n", wm.CreatedAt.Format("2006-01-02 15:04:05"))
 	fmt.Printf("Updated: %s\n", wm.UpdatedAt.Format("2006-01-02 15:04:05"))

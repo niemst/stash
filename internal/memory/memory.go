@@ -142,6 +142,7 @@ func (m *Memory) Recall(ctx context.Context, query string, limit int) ([]Event, 
 // Replaces the working memory (lazy) if the existing one has expired.
 // When input is non-empty and a valid context exists, updates the focus,
 // re-searches for relevant events, and resets the expiry.
+// Empty input returns existing context unchanged.
 // Does not start background goroutines.
 func (m *Memory) WorkingMemory(ctx context.Context, input string) (WorkingMemory, error) {
 	record, err := m.store.Get(ctx, contextID)
@@ -165,6 +166,7 @@ func (m *Memory) WorkingMemory(ctx context.Context, input string) (WorkingMemory
 		return m.updateWorkingMemory(ctx, wm, input)
 	}
 
+	// input == "" → return existing context unchanged
 	return wm, nil
 }
 

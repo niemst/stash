@@ -67,7 +67,33 @@ func main() {
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:  "update",
-						Usage: "Update the focus of working memory",
+						Usage: "Update the focus of working memory (empty string clears focus)",
+					},
+				},
+			},
+			{
+				Name:   "delete",
+				Usage:  "Soft-delete an event by ID",
+				Action: deleteCmd,
+			},
+			{
+				Name:   "purge",
+				Usage:  "Hard-delete an event by ID",
+				Action: purgeCmd,
+			},
+			{
+				Name:   "list",
+				Usage:  "List recent events",
+				Action: listCmd,
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  "limit",
+						Usage: "Maximum number of results",
+						Value: 20,
+					},
+					&cli.BoolFlag{
+						Name:  "json",
+						Usage: "Output results as JSON",
 					},
 				},
 			},
