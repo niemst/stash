@@ -51,6 +51,25 @@ const (
 	RelationTypeReferences  = "references"  // A references B
 )
 
+// FactType represents the temporal semantics category of a fact.
+// Three types with different retrieval and update strategies.
+const (
+	// FactTypeAtemporal: Fact that is always true. Never expires.
+	// Example: "Mohamed was born in Egypt"
+	// ValidUntil is always nil, ValidFrom is creation time.
+	FactTypeAtemporal = "atemporal"
+
+	// FactTypeState: Current state fact. True until it changes.
+	// Example: "Mohamed is working on Stash"
+	// ValidUntil = nil if current, set when fact is superseded or corrected.
+	FactTypeState = "state"
+
+	// FactTypePointInTime: Snapshot at a specific moment.
+	// Example: "Mohamed deployed v0.1 on April 18, 2026"
+	// ValidFrom = ValidUntil = snapshot moment.
+	FactTypePointInTime = "point-in-time"
+)
+
 // BulkRemember represents a single event for batch import.
 // Minimal structure: just content, optional metadata and TTL.
 type BulkRemember struct {
@@ -69,6 +88,7 @@ type Fact struct {
 	Namespace        string         // same as source events
 	Content          string         // the synthesized fact text
 	SynthesizedFrom  []string       // event IDs used to create this fact
+	Type             string         // FactType: "atemporal", "state", or "point-in-time"
 	ValidFrom        time.Time      // when this fact becomes true (required)
 	ValidUntil       *time.Time     // when fact stops being true; nil = ongoing
 	Source           string         // where fact came from: "consolidation", "user", "import"
@@ -138,6 +158,12 @@ func FactFromRecord(r *store.Record) (*Fact, error) {
 
 	source, _ := memMeta["source"].(string)
 
+	// Extract fact type (default to state for backward compatibility)
+	factType := FactTypeState
+	if ft, ok := memMeta["fact_type"].(string); ok && ft != "" {
+		factType = ft
+	}
+
 	// Extract confidence and observation count
 	confidence := float32(0.5) // Default for new facts
 	if conf, ok := memMeta["confidence"].(float64); ok {
@@ -154,6 +180,7 @@ func FactFromRecord(r *store.Record) (*Fact, error) {
 		Namespace:        r.Namespace,
 		Content:          r.Content,
 		SynthesizedFrom:  synthesizedFrom,
+		Type:             factType,
 		ValidFrom:        validFrom,
 		ValidUntil:       validUntil,
 		Source:           source,

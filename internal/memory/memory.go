@@ -17,12 +17,15 @@ import (
 )
 
 const (
-	contextID       = "_memory.context"
-	contextDuration = time.Hour
-	typeEvent       = "event"
-	typeContext     = "context"
-	typeFact        = "fact"
-	typeRelation    = "relationship"
+	contextID        = "_memory.context"
+	contextDuration  = time.Hour
+	typeEvent        = "event"
+	typeContext      = "context"
+	typeFact         = "fact"
+	typeRelation     = "relationship"
+	typeFactAtemporal   = "atemporal"
+	typeFactState       = "state"
+	typeFactPointInTime = "point-in-time"
 )
 
 var errMissingStore = errors.New("memory: store is required")
@@ -911,6 +914,7 @@ func (m *Memory) ConsolidateRecent(
 
 		memMeta := map[string]any{
 			"type":               typeFact,
+			"fact_type":          typeFactState,           // Phase 3: default to state facts
 			"content":            factText,
 			"entity":             structured.Entity,     // Extracted entity
 			"property":           structured.Property,   // Extracted property
@@ -1448,4 +1452,68 @@ func (m *Memory) Reinforce(ctx context.Context, namespace, entity, property, val
 
 	// Store updated record
 	return m.store.Put(ctx, *targetRecord)
+}
+
+// QueryFactsByType returns all facts of a specific type in a namespace.
+// factType should be one of: "atemporal", "state", "point-in-time"
+func (m *Memory) QueryFactsByType(ctx context.Context, namespace, factType string) ([]Fact, error) {
+	if factType != typeFactAtemporal && factType != typeFactState && factType != typeFactPointInTime {
+		return nil, fmt.Errorf("invalid fact type: %q", factType)
+	}
+
+	filter := store.Filter{
+		Namespaces: []string{namespace},
+		Where: &store.Predicate{
+			Field: "metadata._memory.fact_type",
+			Op:    store.OpEq,
+			Value: factType,
+		},
+	}
+
+	records, err := m.store.List(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("query facts: %w", err)
+	}
+
+	facts := make([]Fact, 0, len(records))
+	for i := range records {
+		fact, err := FactFromRecord(&records[i])
+		if err != nil {
+			continue
+		}
+		facts = append(facts, *fact)
+	}
+
+	return facts, nil
+}
+
+// GetAtemporalFacts returns all atemporal facts (always true, never expire).
+func (m *Memory) GetAtemporalFacts(ctx context.Context, namespace string) ([]Fact, error) {
+	return m.QueryFactsByType(ctx, namespace, typeFactAtemporal)
+}
+
+// GetStateFactsFor returns all state facts about an entity (current state only).
+// Filters for facts where ValidUntil is nil (still true).
+func (m *Memory) GetStateFactsFor(ctx context.Context, namespace, entity string) ([]Fact, error) {
+	// Query all state facts in namespace
+	stateFacts, err := m.QueryFactsByType(ctx, namespace, typeFactState)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by entity and current status (ValidUntil = nil)
+	var result []Fact
+	for _, fact := range stateFacts {
+		factEntity, _ := fact.Metadata["entity"].(string)
+		if factEntity == entity && fact.ValidUntil == nil {
+			result = append(result, fact)
+		}
+	}
+
+	return result, nil
+}
+
+// GetPointInTimeFacts returns all point-in-time facts (snapshots).
+func (m *Memory) GetPointInTimeFacts(ctx context.Context, namespace string) ([]Fact, error) {
+	return m.QueryFactsByType(ctx, namespace, typeFactPointInTime)
 }

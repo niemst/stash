@@ -2846,3 +2846,153 @@ func TestReinforce_PersistsToStore(t *testing.T) {
 		t.Errorf("expected confidence %.4f, got %.4f", calculateConfidence(2), parsedFact.Confidence)
 	}
 }
+
+// Phase 3: Temporal Fact Types
+
+func TestQueryFactsByType_InvalidType(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	_, err := mem.QueryFactsByType(context.Background(), "", "invalid_type")
+	if err == nil {
+		t.Error("Expected error for invalid fact type")
+	}
+}
+
+func TestQueryFactsByType_State(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create a state fact
+	factID := uuid.New().String()
+	now := time.Now().UTC()
+
+	memMeta := map[string]any{
+		"type":              "fact",
+		"fact_type":         "state",
+		"content":           "Alice is working",
+		"entity":            "alice",
+		"created_at":        now.Format(time.RFC3339),
+		"valid_from":        now.Format(time.RFC3339),
+		"valid_until":       nil,
+		"source":            "test",
+		"confidence":        0.5,
+		"observation_count": 1,
+	}
+
+	record := store.Record{
+		ID:        factID,
+		Namespace: "",
+		Content:   "Alice is working",
+		Metadata: map[string]any{
+			"_memory": memMeta,
+		},
+	}
+
+	err := mem.store.Put(context.Background(), record)
+	if err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+
+	stateFacts, err := mem.QueryFactsByType(context.Background(), "", "state")
+	if err != nil {
+		t.Fatalf("QueryFactsByType failed: %v", err)
+	}
+
+	if len(stateFacts) < 1 {
+		t.Errorf("Expected state facts, got none")
+	}
+
+	found := false
+	for _, f := range stateFacts {
+		if f.ID == factID && f.Type == "state" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("State fact not found")
+	}
+}
+
+func TestFactTypeDefaults(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create fact without explicit type (should default to state)
+	factID := uuid.New().String()
+	now := time.Now().UTC()
+
+	memMeta := map[string]any{
+		"type":              "fact",
+		"content":           "Test",
+		"created_at":        now.Format(time.RFC3339),
+		"valid_from":        now.Format(time.RFC3339),
+		"source":            "test",
+		"confidence":        0.5,
+		"observation_count": 1,
+	}
+
+	record := store.Record{
+		ID:        factID,
+		Namespace: "",
+		Content:   "Test",
+		Metadata: map[string]any{
+			"_memory": memMeta,
+		},
+	}
+
+	mem.store.Put(context.Background(), record)
+
+	retrieved, _ := mem.store.Get(context.Background(), factID)
+	fact, _ := FactFromRecord(&retrieved)
+
+	if fact.Type != "state" {
+		t.Errorf("Expected default type=state, got %v", fact.Type)
+	}
+}
+
+func TestGetAtemporalFacts(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create atemporal fact
+	now := time.Now().UTC()
+	memMeta := map[string]any{
+		"type":              "fact",
+		"fact_type":         "atemporal",
+		"content":           "Egypt is in Africa",
+		"entity":            "egypt",
+		"created_at":        now.Format(time.RFC3339),
+		"valid_from":        now.Format(time.RFC3339),
+		"valid_until":       nil,
+		"source":            "test",
+		"confidence":        1.0,
+		"observation_count": 100,
+	}
+
+	record := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: "",
+		Content:   "Egypt is in Africa",
+		Metadata: map[string]any{
+			"_memory": memMeta,
+		},
+	}
+
+	mem.store.Put(context.Background(), record)
+
+	aFacts, err := mem.GetAtemporalFacts(context.Background(), "")
+	if err != nil {
+		t.Fatalf("GetAtemporalFacts failed: %v", err)
+	}
+
+	if len(aFacts) < 1 {
+		t.Error("Expected atemporal facts, got none")
+	}
+
+	for _, f := range aFacts {
+		if f.Type != "atemporal" {
+			t.Errorf("Expected type=atemporal, got %v", f.Type)
+		}
+	}
+}

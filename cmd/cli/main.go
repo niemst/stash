@@ -204,6 +204,22 @@ func main() {
 							},
 						},
 					},
+					{
+						Name:   "query",
+						Usage:  "Query facts by type (atemporal, state, or point-in-time)",
+						Action: queryCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "namespace",
+								Usage: "Namespace to query (optional)",
+							},
+							&cli.StringFlag{
+								Name:  "type",
+								Usage: "Fact type: atemporal, state, or point-in-time (default: state)",
+								Value: "state",
+							},
+						},
+					},
 				},
 			},
 		},
