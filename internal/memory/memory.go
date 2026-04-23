@@ -889,10 +889,16 @@ func (m *Memory) ConsolidateRecent(
 			eventIDs[i] = rec.ID
 		}
 
-		// Call reasoner to synthesize
-		factText, err := m.reasoner.Reason(ctx, texts)
+		// Call reasoner to synthesize structured fact
+		structured, err := m.reasoner.ReasonStructured(ctx, texts)
 		if err != nil {
 			return factIDs, fmt.Errorf("synthesize cluster: %w", err)
+		}
+
+		// Use structured fact's summary as the content
+		factText := structured.Summary
+		if factText == "" {
+			factText = fmt.Sprintf("Entity: %s, Property: %s, Value: %s", structured.Entity, structured.Property, structured.Value)
 		}
 
 		// Check for conflicts with existing facts (simple heuristic)
@@ -906,6 +912,9 @@ func (m *Memory) ConsolidateRecent(
 		memMeta := map[string]any{
 			"type":               typeFact,
 			"content":            factText,
+			"entity":             structured.Entity,     // Extracted entity
+			"property":           structured.Property,   // Extracted property
+			"value":              structured.Value,      // Extracted value
 			"created_at":         now.Format(time.RFC3339),
 			"valid_from":         now.Format(time.RFC3339), // Fact becomes true now
 			"valid_until":        nil,                       // Ongoing until updated

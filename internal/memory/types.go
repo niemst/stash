@@ -213,46 +213,46 @@ func timeRangesOverlap(from1 time.Time, until1 *time.Time, from2 time.Time, unti
 // ReflectionReport summarizes the state of memory in a namespace.
 // Produced by Memory.Reflect() for human review and decision-making.
 type ReflectionReport struct {
-	Namespace           string                   // namespace analyzed
-	TotalFacts          int                      // count of facts
-	TotalContradictions int                      // count of contradictions
-	TotalEntities       int                      // count of unique entities
-	EntitiesByName      map[string]*EntitySummary // facts grouped by entity
-	Contradictions      []Contradiction          // all contradictions found
-	Gaps                []EntityGap              // entities with few facts
-	DateRange           *DateRange               // when facts span
-	GeneratedAt         time.Time                // when report was generated
+	Namespace           string                   `json:"namespace"`
+	TotalFacts          int                      `json:"total_facts"`
+	TotalContradictions int                      `json:"total_contradictions"`
+	TotalEntities       int                      `json:"total_entities"`
+	EntitiesByName      map[string]*EntitySummary `json:"entities_by_name"`
+	Contradictions      []Contradiction          `json:"contradictions"`
+	Gaps                []EntityGap              `json:"gaps"`
+	DateRange           *DateRange               `json:"date_range"`
+	GeneratedAt         time.Time                `json:"generated_at"`
 }
 
 // EntitySummary aggregates facts about a single entity.
 type EntitySummary struct {
-	Entity           string                  // entity name
-	FactCount        int                     // number of facts about this entity
-	Properties       map[string][]FactValue  // property → [values] (what we know)
-	ContradictionCount int                   // contradictions involving this entity
-	FirstFact        time.Time               // oldest fact
-	LastFact         time.Time               // newest fact
-	Sources          map[string]int          // source → count (where facts came from)
+	Entity             string                  `json:"entity"`
+	FactCount          int                     `json:"fact_count"`
+	Properties         map[string][]FactValue  `json:"properties"`
+	ContradictionCount int                     `json:"contradiction_count"`
+	FirstFact          time.Time               `json:"first_fact"`
+	LastFact           time.Time               `json:"last_fact"`
+	Sources            map[string]int          `json:"sources"`
 }
 
 // FactValue represents a fact about entity/property.
 type FactValue struct {
-	Value      string     // the fact value
-	FactID     string     // which fact this came from
-	ValidFrom  time.Time  // when true
-	ValidUntil *time.Time // when stopped being true
-	Source     string     // where this came from
+	Value      string     `json:"value"`
+	FactID     string     `json:"fact_id"`
+	ValidFrom  time.Time  `json:"valid_from"`
+	ValidUntil *time.Time `json:"valid_until,omitempty"`
+	Source     string     `json:"source"`
 }
 
 // EntityGap represents an entity with few facts (potential gap in knowledge).
 type EntityGap struct {
-	Entity     string // entity name
-	FactCount  int    // how many facts we have
-	Properties int    // how many distinct properties
+	Entity     string `json:"entity"`
+	FactCount  int    `json:"fact_count"`
+	Properties int    `json:"properties"`
 }
 
 // DateRange spans a time period.
 type DateRange struct {
-	From time.Time  // earliest fact
-	To   *time.Time // latest fact (nil if ongoing)
+	From time.Time  `json:"from"`
+	To   *time.Time `json:"to,omitempty"`
 }

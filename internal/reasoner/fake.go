@@ -61,3 +61,26 @@ func (f *Fake) Reason(_ context.Context, texts []string) (string, error) {
 	// Return consistent synthesized fact
 	return fmt.Sprintf("Synthesized fact from %d texts: [%s]", len(texts), hashStr), nil
 }
+
+// ReasonStructured returns a deterministic structured fact.
+// For testing only. Entity, Property, Value are fixed dummy values.
+func (f *Fake) ReasonStructured(_ context.Context, texts []string) (*StructuredFact, error) {
+	if len(texts) == 0 {
+		return nil, errors.New("reasoner: texts must not be empty")
+	}
+
+	// Combine all texts for hashing
+	combined := strings.Join(texts, "\n")
+
+	// Compute deterministic hash-based summary
+	hash := md5.Sum([]byte(combined))
+	hashStr := fmt.Sprintf("%x", hash)[:8]
+
+	// Return consistent structured fact (dummy values for testing)
+	return &StructuredFact{
+		Entity:   "test_entity",
+		Property: "test_property",
+		Value:    hashStr,
+		Summary:  fmt.Sprintf("Synthesized fact from %d texts: [%s]", len(texts), hashStr),
+	}, nil
+}
