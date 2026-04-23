@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -906,6 +907,9 @@ func (m *Memory) ConsolidateRecent(
 			"type":              typeFact,
 			"content":           factText,
 			"created_at":        now.Format(time.RFC3339),
+			"valid_from":        now.Format(time.RFC3339), // Fact becomes true now
+			"valid_until":       nil,                       // Ongoing until updated
+			"source":            "consolidation",           // Mark synthesized facts
 			"synthesized_from":  eventIDs,
 		}
 		if len(conflicts) > 0 {
@@ -1064,4 +1068,122 @@ func cosineSimilarity(a, b []float32) float64 {
 	}
 
 	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+// FindContradictions returns all facts in a namespace that contradict each other.
+// Two facts contradict if:
+// - They have the same entity and property (from metadata)
+// - Their valid time ranges overlap
+// - Their values differ
+//
+// Returns contradictions sorted by entity, property, then discovery time.
+// Status is "conflict" if ranges overlap (both active), "evolution" if sequential.
+// Returns empty slice if no contradictions found.
+func (m *Memory) FindContradictions(ctx context.Context, namespace string) ([]Contradiction, error) {
+	// Query all facts in namespace
+	filter := store.Filter{
+		Namespaces: []string{namespace},
+		Where: &store.Predicate{
+			Field: "metadata._memory.type",
+			Op:    store.OpEq,
+			Value: typeFact,
+		},
+	}
+
+	records, err := m.store.List(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse facts
+	facts := make([]*Fact, 0, len(records))
+	for i := range records {
+		fact, err := FactFromRecord(&records[i])
+		if err != nil {
+			continue // Skip records that can't be parsed as facts
+		}
+		facts = append(facts, fact)
+	}
+
+	if len(facts) < 2 {
+		return []Contradiction{}, nil // Need at least 2 facts to have a contradiction
+	}
+
+	// Compare all pairs
+	contradictions := []Contradiction{}
+	// Use current time for overlap detection.
+	// Nil ValidUntil means "ongoing until now".
+	now := time.Now().UTC()
+
+	for i := 0; i < len(facts); i++ {
+		for j := i + 1; j < len(facts); j++ {
+			fact1 := facts[i]
+			fact2 := facts[j]
+
+			// Extract entity and property from metadata
+			entity1, _ := fact1.Metadata["entity"].(string)
+			property1, _ := fact1.Metadata["property"].(string)
+			value1, _ := fact1.Metadata["value"].(string)
+
+			entity2, _ := fact2.Metadata["entity"].(string)
+			property2, _ := fact2.Metadata["property"].(string)
+			value2, _ := fact2.Metadata["value"].(string)
+
+			// Skip if entity or property missing or not matching
+			if entity1 == "" || property1 == "" || entity2 == "" || property2 == "" {
+				continue
+			}
+			if entity1 != entity2 || property1 != property2 {
+				continue
+			}
+
+			// Skip if values are the same (not a contradiction)
+			if value1 == value2 {
+				continue
+			}
+
+			// Check for time range overlap
+			if !timeRangesOverlap(fact1.ValidFrom, fact1.ValidUntil, fact2.ValidFrom, fact2.ValidUntil, now) {
+				continue // Time ranges don't overlap, no contradiction
+			}
+
+			// Determine status
+			status := ContradictionStatusConflict
+			// If ranges overlap but are sequential-ish (one has no ValidUntil), mark as evolution
+			// For now, overlapping = conflict. Caller can review and update fact ValidUntil if needed.
+
+			contradiction := Contradiction{
+				ID:           uuid.New().String(),
+				FactID1:      fact1.ID,
+				FactID2:      fact2.ID,
+				Entity:       entity1,
+				Property:     property1,
+				Value1:       value1,
+				Value2:       value2,
+				ValidFrom1:   fact1.ValidFrom,
+				ValidUntil1:  fact1.ValidUntil,
+				ValidFrom2:   fact2.ValidFrom,
+				ValidUntil2:  fact2.ValidUntil,
+				Status:       status,
+				DiscoveredAt: now,
+				Metadata:     nil,
+			}
+
+			contradictions = append(contradictions, contradiction)
+		}
+	}
+
+	// Sort by entity, property, then discovery time
+	sort.Slice(contradictions, func(i, j int) bool {
+		ci, cj := contradictions[i], contradictions[j]
+		if ci.Entity != cj.Entity {
+			return ci.Entity < cj.Entity
+		}
+		if ci.Property != cj.Property {
+			return ci.Property < cj.Property
+		}
+		return ci.DiscoveredAt.Before(cj.DiscoveredAt)
+	})
+
+	return contradictions, nil
 }

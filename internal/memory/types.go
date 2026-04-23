@@ -62,14 +62,18 @@ type BulkRemember struct {
 // Fact represents a durable, synthesized belief derived from events.
 // Stored as a store.Record with _memory.type = "fact".
 // Facts are synthesized from clusters of similar events via LLM reasoning.
+// Temporal fields (ValidFrom, ValidUntil) track when facts are/were true.
 type Fact struct {
 	ID              string         // UUID
 	Namespace       string         // same as source events
 	Content         string         // the synthesized fact text
 	SynthesizedFrom []string       // event IDs used to create this fact
-	ConflictWith    []string       // fact IDs with conflicting information (if any)
-	CreatedAt       time.Time      // when fact was created
-	Metadata        map[string]any // optional caller metadata
+	ValidFrom       time.Time      // when this fact becomes true (required)
+	ValidUntil      *time.Time     // when fact stops being true; nil = ongoing
+	Source          string         // where fact came from: "consolidation", "user", "import"
+	ConflictWith    []string       // fact IDs with overlapping contradictions (if any)
+	CreatedAt       time.Time      // when fact was created in store
+	Metadata        map[string]any // optional caller metadata (entity, property, value, etc.)
 	Score           float32        // similarity score for retrieval
 }
 
@@ -107,7 +111,7 @@ func FactFromRecord(r *store.Record) (*Fact, error) {
 		}
 	}
 
-	// Extract timestamp
+	// Extract timestamps
 	createdAt := time.Now()
 	if ts, ok := memMeta["created_at"].(string); ok {
 		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
@@ -115,14 +119,77 @@ func FactFromRecord(r *store.Record) (*Fact, error) {
 		}
 	}
 
+	validFrom := time.Now() // Default to now if not set
+	if ts, ok := memMeta["valid_from"].(string); ok {
+		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			validFrom = parsed
+		}
+	}
+
+	var validUntil *time.Time
+	if ts, ok := memMeta["valid_until"].(string); ok && ts != "" {
+		if parsed, err := time.Parse(time.RFC3339, ts); err == nil {
+			validUntil = &parsed
+		}
+	}
+
+	source, _ := memMeta["source"].(string)
+
 	return &Fact{
 		ID:              r.ID,
 		Namespace:       r.Namespace,
 		Content:         r.Content,
 		SynthesizedFrom: synthesizedFrom,
+		ValidFrom:       validFrom,
+		ValidUntil:      validUntil,
+		Source:          source,
 		ConflictWith:    conflictWith,
 		CreatedAt:       createdAt,
 		Metadata:        r.Metadata,
 		Score:           0, // No score for fact record (not from search)
 	}, nil
+}
+
+// Contradiction represents two facts with incompatible values for the same entity+property.
+// Stored transiently (not persisted); computed on-demand via FindContradictions().
+// Status categorizes the contradiction: "conflict" (overlapping time ranges) or
+// "evolution" (sequential time ranges, normal change).
+type Contradiction struct {
+	ID           string         // UUID for this contradiction report
+	FactID1      string         // first fact ID
+	FactID2      string         // second fact ID
+	Entity       string         // the entity in question (from metadata)
+	Property     string         // the property (from metadata)
+	Value1       string         // first fact's value
+	Value2       string         // second fact's value
+	ValidFrom1   time.Time      // first fact's temporal scope
+	ValidUntil1  *time.Time
+	ValidFrom2   time.Time      // second fact's temporal scope
+	ValidUntil2  *time.Time
+	Status       string         // "conflict" (overlapping) or "evolution" (sequential)
+	DiscoveredAt time.Time      // when this contradiction was detected
+	Metadata     map[string]any // optional additional context
+}
+
+// Supported contradiction statuses
+const (
+	ContradictionStatusConflict  = "conflict"   // overlapping, incompatible
+	ContradictionStatusEvolution = "evolution"  // sequential, normal change
+)
+
+// timeRangesOverlap checks if two temporal ranges overlap.
+// Uses the provided `now` as reference for nil until values (ongoing facts).
+// Two ranges [from1, until1] and [from2, until2] overlap iff from1 < until2 and from2 < until1.
+func timeRangesOverlap(from1 time.Time, until1 *time.Time, from2 time.Time, until2 *time.Time, now time.Time) bool {
+	effectiveUntil1 := until1
+	if effectiveUntil1 == nil {
+		effectiveUntil1 = &now
+	}
+
+	effectiveUntil2 := until2
+	if effectiveUntil2 == nil {
+		effectiveUntil2 = &now
+	}
+
+	return from1.Before(*effectiveUntil2) && from2.Before(*effectiveUntil1)
 }

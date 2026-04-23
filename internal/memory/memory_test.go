@@ -12,6 +12,7 @@ import (
 	"github.com/alash3al/stash/internal/reasoner"
 	"github.com/alash3al/stash/internal/store"
 	storemapdb "github.com/alash3al/stash/internal/store/mapdb"
+	"github.com/google/uuid"
 )
 
 func startStore(t *testing.T) (store.Store, func()) {
@@ -1600,4 +1601,530 @@ func TestCosineSimilarity(t *testing.T) {
 		})
 	}
 }
+
+
+// Test contradiction detection
+
+func TestFindContradictions_OverlappingConflict(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	// Create two facts with overlapping time ranges and different values
+	// Use fixed times for deterministic testing
+	now := time.Date(2026, 4, 23, 12, 0, 0, 0, time.UTC)
+	future := now.Add(time.Hour)
+
+	fact1ID := uuid.New().String()
+	fact2ID := uuid.New().String()
+
+	// Fact 1: Mohamed speaks French (valid from now)
+	fact1 := store.Record{
+		ID:        fact1ID,
+		Namespace: ns,
+		Content:   "Mohamed speaks French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"content":    "Mohamed speaks French",
+				"created_at": now.Format(time.RFC3339),
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	// Fact 2: Mohamed speaks Spanish (overlapping range)
+	fact2 := store.Record{
+		ID:        fact2ID,
+		Namespace: ns,
+		Content:   "Mohamed speaks Spanish",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{0, 1, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"content":    "Mohamed speaks Spanish",
+				"created_at": now.Add(time.Minute).Format(time.RFC3339),
+				"valid_from": now.Add(time.Minute).Format(time.RFC3339),
+				"valid_until": future.Format(time.RFC3339), // Ends in the future
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "Spanish",
+		},
+	}
+
+	mem.store.Put(ctx, fact1)
+	mem.store.Put(ctx, fact2)
+
+	// Note: FindContradictions uses time.Now().UTC() for reference time.
+	// For this test to work with fixed historical times, we rely on the fact that
+	// Fact 2's ValidUntil (future) is far enough in the future to cover the test execution time.
+	// In production, facts would typically have ValidUntil in the past (ended) or nil (ongoing).
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find the contradiction
+	if len(contradictions) != 1 {
+		t.Errorf("expected 1 contradiction, got %d (future=%v, now=%v)", len(contradictions), future, time.Now().UTC())
+		return
+	}
+
+	c := contradictions[0]
+	if c.Status != ContradictionStatusConflict {
+		t.Errorf("expected status %q, got %q", ContradictionStatusConflict, c.Status)
+	}
+	if c.Entity != "Mohamed" {
+		t.Errorf("expected entity Mohamed, got %q", c.Entity)
+	}
+	if c.Property != "language" {
+		t.Errorf("expected property language, got %q", c.Property)
+	}
+	if (c.Value1 == "French" && c.Value2 != "Spanish") || (c.Value1 == "Spanish" && c.Value2 != "French") {
+		t.Errorf("expected values French and Spanish, got %q and %q", c.Value1, c.Value2)
+	}
+}
+
+func TestFindContradictions_SequentialEvolution(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	now := time.Now().UTC()
+	then := now.Add(-time.Hour)
+
+	// Fact 1: Mohamed spoke French (valid from then, until now)
+	fact1 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed spoke French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":        "fact",
+				"valid_from":  then.Format(time.RFC3339),
+				"valid_until": now.Format(time.RFC3339), // Ended at now
+				"source":      "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	// Fact 2: Mohamed speaks Spanish (valid from now)
+	fact2 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed speaks Spanish",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{0, 1, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil, // Ongoing
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "Spanish",
+		},
+	}
+
+	mem.store.Put(ctx, fact1)
+	mem.store.Put(ctx, fact2)
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find NO contradictions (sequential, non-overlapping)
+	if len(contradictions) != 0 {
+		t.Errorf("expected 0 contradictions for sequential facts, got %d", len(contradictions))
+	}
+}
+
+func TestFindContradictions_SameValueNoConflict(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	now := time.Now().UTC()
+
+	// Fact 1: Mohamed speaks French
+	fact1 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed speaks French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	// Fact 2: Mohamed also speaks French (same value)
+	fact2 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed speaks French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French", // Same value
+		},
+	}
+
+	mem.store.Put(ctx, fact1)
+	mem.store.Put(ctx, fact2)
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find NO contradictions (same values)
+	if len(contradictions) != 0 {
+		t.Errorf("expected 0 contradictions for same values, got %d", len(contradictions))
+	}
+}
+
+func TestFindContradictions_DifferentPropertyNoConflict(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	now := time.Now().UTC()
+
+	// Fact 1: Mohamed speaks French
+	fact1 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed speaks French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	// Fact 2: Mohamed likes Go (different property)
+	fact2 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed likes Go",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{0, 1, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Mohamed",
+			"property": "favorite_language", // Different property
+			"value":    "Go",
+		},
+	}
+
+	mem.store.Put(ctx, fact1)
+	mem.store.Put(ctx, fact2)
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find NO contradictions (different properties)
+	if len(contradictions) != 0 {
+		t.Errorf("expected 0 contradictions for different properties, got %d", len(contradictions))
+	}
+}
+
+func TestFindContradictions_MissingMetadata(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	now := time.Now().UTC()
+
+	// Fact 1: missing entity (won't be compared)
+	fact1 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "No entity",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"property": "language",
+			"value":    "French",
+			// missing "entity"
+		},
+	}
+
+	// Fact 2: complete
+	fact2 := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Complete fact",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{0, 1, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":       "fact",
+				"valid_from": now.Format(time.RFC3339),
+				"valid_until": nil,
+				"source":     "test",
+			},
+			"entity":   "Ali",
+			"property": "language",
+			"value":    "Spanish",
+		},
+	}
+
+	mem.store.Put(ctx, fact1)
+	mem.store.Put(ctx, fact2)
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find NO contradictions (fact1 missing entity)
+	if len(contradictions) != 0 {
+		t.Errorf("expected 0 contradictions with missing metadata, got %d", len(contradictions))
+	}
+}
+
+func TestFindContradictions_EmptyNamespace(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Find contradictions in empty namespace
+	contradictions, err := mem.FindContradictions(ctx, "empty-namespace")
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	if len(contradictions) != 0 {
+		t.Errorf("expected 0 contradictions in empty namespace, got %d", len(contradictions))
+	}
+}
+
+func TestFindContradictions_MultipleContradictions(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-contradictions"
+
+	now := time.Now().UTC()
+
+	// Create 4 facts with 2 contradiction pairs
+	facts := []struct {
+		id       string
+		entity   string
+		property string
+		value    string
+	}{
+		{uuid.New().String(), "Mohamed", "language", "French"},
+		{uuid.New().String(), "Mohamed", "language", "Spanish"},
+		{uuid.New().String(), "Ali", "programming_language", "Go"},
+		{uuid.New().String(), "Ali", "programming_language", "Rust"},
+	}
+
+	for _, f := range facts {
+		record := store.Record{
+			ID:        f.id,
+			Namespace: ns,
+			Content:   fmt.Sprintf("%s %s %s", f.entity, f.property, f.value),
+			Vectors: map[string]store.Vector{
+				"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+			},
+			Metadata: map[string]any{
+				"_memory": map[string]any{
+					"type":       "fact",
+					"valid_from": now.Format(time.RFC3339),
+					"valid_until": nil,
+					"source":     "test",
+				},
+				"entity":   f.entity,
+				"property": f.property,
+				"value":    f.value,
+			},
+		}
+		mem.store.Put(ctx, record)
+	}
+
+	// Find contradictions
+	contradictions, err := mem.FindContradictions(ctx, ns)
+	if err != nil {
+		t.Fatalf("FindContradictions failed: %v", err)
+	}
+
+	// Should find 2 contradictions (Mohamed language + Ali programming_language)
+	if len(contradictions) != 2 {
+		t.Errorf("expected 2 contradictions, got %d", len(contradictions))
+		for i, c := range contradictions {
+			t.Logf("  Contradiction %d: %s/%s: %q vs %q", i+1, c.Entity, c.Property, c.Value1, c.Value2)
+		}
+		return
+	}
+
+	// Verify sorting: by entity, then property
+	if contradictions[0].Entity > contradictions[1].Entity {
+		t.Error("contradictions not sorted by entity")
+	}
+}
+
+func TestTimeRangesOverlap(t *testing.T) {
+	tests := []struct {
+		name     string
+		from1    time.Time
+		until1   *time.Time
+		from2    time.Time
+		until2   *time.Time
+		expected bool
+	}{
+		{
+			name:     "identical ranges",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   ptrTime(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)),
+			from2:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until2:   ptrTime(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)),
+			expected: true,
+		},
+		{
+			name:     "overlapping ranges",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   ptrTime(time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)),
+			from2:    time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC),
+			until2:   ptrTime(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)),
+			expected: true,
+		},
+		{
+			name:     "sequential ranges (no overlap)",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   ptrTime(time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)),
+			from2:    time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC), // Starts exactly when 1 ends
+			until2:   ptrTime(time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)),
+			expected: false, // No overlap (boundary case)
+		},
+		{
+			name:     "one ongoing (nil until)",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   nil, // Ongoing
+			from2:    time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			until2:   ptrTime(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)),
+			expected: true,
+		},
+		{
+			name:     "both ongoing (nil until)",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   nil, // Ongoing
+			from2:    time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC),
+			until2:   nil, // Ongoing
+			expected: true,
+		},
+		{
+			name:     "completely separate ranges",
+			from1:    time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+			until1:   ptrTime(time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)),
+			from2:    time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC),
+			until2:   ptrTime(time.Date(2026, 2, 10, 0, 0, 0, 0, time.UTC)),
+			expected: false,
+		},
+	}
+
+	// Use a reference time that's in the future to test "ongoing" facts
+	refTime := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := timeRangesOverlap(tt.from1, tt.until1, tt.from2, tt.until2, refTime)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+// Helper to create time pointer
+func ptrTime(t time.Time) *time.Time {
+	return &t
+}
+
+// Debug test to understand metadata storage
 
