@@ -84,3 +84,27 @@ func (f *Fake) ReasonStructured(_ context.Context, texts []string) (*StructuredF
 		Summary:  fmt.Sprintf("Synthesized fact from %d texts: [%s]", len(texts), hashStr),
 	}, nil
 }
+
+// ReasonRelationships returns deterministic relationships for testing.
+// Always returns the same 2 relationships for any input.
+func (f *Fake) ReasonRelationships(_ context.Context, factContent string) ([]*StructuredRelationship, error) {
+	if factContent == "" {
+		return nil, errors.New("reasoner: factContent must not be empty")
+	}
+
+	// Return two deterministic relationships for testing
+	return []*StructuredRelationship{
+		{
+			FromEntity:   "TestEntity1",
+			RelationType: "test_relation",
+			ToEntity:     "TestEntity2",
+			Confidence:   0.8,
+		},
+		{
+			FromEntity:   "TestEntity2",
+			RelationType: "related_to",
+			ToEntity:     "TestEntity3",
+			Confidence:   0.75,
+		},
+	}, nil
+}

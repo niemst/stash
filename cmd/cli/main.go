@@ -156,6 +156,22 @@ func main() {
 						},
 					},
 					{
+						Name:   "extract-relationships",
+						Usage:  "Extract relationships from facts using LLM",
+						Action: extractRelationshipsCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "namespace",
+								Usage: "Namespace to extract from (optional)",
+							},
+							&cli.IntFlag{
+								Name:  "limit",
+								Usage: "Maximum number of facts to process",
+								Value: 100,
+							},
+						},
+					},
+					{
 						Name:   "contradictions",
 						Usage:  "Find contradictions in facts",
 						Action: contradictionsCmd,

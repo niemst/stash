@@ -3170,3 +3170,273 @@ func TestGetAllRelationships(t *testing.T) {
 		t.Errorf("Expected 3 relationships total, got %d", len(allRels))
 	}
 }
+
+func TestConsolidateRelationships_BasicExtraction(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create a fact manually using the store API (like ConsolidateRecent does)
+	now := time.Now().UTC()
+	factID := uuid.New().String()
+
+	memMeta := map[string]any{
+		"type":              typeFact,
+		"fact_type":         typeFactState,
+		"content":           "Alice works at TechCorp",
+		"entity":            "Alice",
+		"property":          "works_at",
+		"value":             "TechCorp",
+		"created_at":        now.Format(time.RFC3339),
+		"valid_from":        now.Format(time.RFC3339),
+		"valid_until":       nil,
+		"source":            "consolidation",
+		"synthesized_from":  []string{},
+		"confidence":        0.9,
+		"observation_count": 1,
+	}
+
+	record := store.Record{
+		ID:        factID,
+		Namespace: "test",
+		Content:   "Alice works at TechCorp",
+		Vectors:   map[string]store.Vector{},
+		Metadata: map[string]any{
+			"_memory": memMeta,
+		},
+	}
+
+	err := mem.store.Put(context.Background(), record)
+	if err != nil {
+		t.Fatalf("Failed to store fact: %v", err)
+	}
+
+	// Run relationship consolidation
+	count, err := mem.ConsolidateRelationships(context.Background(), "test", 10)
+	if err != nil {
+		t.Fatalf("ConsolidateRelationships failed: %v", err)
+	}
+
+	// Fake reasoner returns 2 relationships per fact
+	if count != 2 {
+		t.Errorf("Expected 2 relationships extracted, got %d", count)
+	}
+}
+
+func TestConsolidateRelationships_MultipleFactsStored(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create multiple facts
+	now := time.Now().UTC()
+	factTexts := []string{
+		"Alice works at TechCorp",
+		"TechCorp is located in Paris",
+	}
+
+	for i, content := range factTexts {
+		factID := uuid.New().String()
+		memMeta := map[string]any{
+			"type":              typeFact,
+			"fact_type":         typeFactState,
+			"content":           content,
+			"created_at":        now.Format(time.RFC3339),
+			"valid_from":        now.Format(time.RFC3339),
+			"valid_until":       nil,
+			"source":            "consolidation",
+			"synthesized_from":  []string{},
+			"confidence":        float64(0.9 - float64(i)*0.05),
+			"observation_count": 1,
+		}
+
+		record := store.Record{
+			ID:        factID,
+			Namespace: "test",
+			Content:   content,
+			Vectors:   map[string]store.Vector{},
+			Metadata: map[string]any{
+				"_memory": memMeta,
+			},
+		}
+
+		err := mem.store.Put(context.Background(), record)
+		if err != nil {
+			t.Fatalf("Failed to store fact: %v", err)
+		}
+	}
+
+	// Run relationship consolidation
+	count, err := mem.ConsolidateRelationships(context.Background(), "test", 10)
+	if err != nil {
+		t.Fatalf("ConsolidateRelationships failed: %v", err)
+	}
+
+	// Fake reasoner returns 2 relationships per fact, so 4 total
+	if count != 4 {
+		t.Errorf("Expected 4 relationships extracted (2 facts × 2 each), got %d", count)
+	}
+}
+
+func TestConsolidateRelationships_LimitBoundary(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create 5 facts
+	now := time.Now().UTC()
+	for i := 0; i < 5; i++ {
+		factID := uuid.New().String()
+		memMeta := map[string]any{
+			"type":              typeFact,
+			"fact_type":         typeFactState,
+			"content":           fmt.Sprintf("Fact %d for testing", i),
+			"created_at":        now.Format(time.RFC3339),
+			"valid_from":        now.Format(time.RFC3339),
+			"valid_until":       nil,
+			"source":            "consolidation",
+			"synthesized_from":  []string{},
+			"confidence":        0.9,
+			"observation_count": 1,
+		}
+
+		record := store.Record{
+			ID:        factID,
+			Namespace: "test",
+			Content:   fmt.Sprintf("Fact %d for testing", i),
+			Vectors:   map[string]store.Vector{},
+			Metadata: map[string]any{
+				"_memory": memMeta,
+			},
+		}
+
+		err := mem.store.Put(context.Background(), record)
+		if err != nil {
+			t.Fatalf("Failed to store fact: %v", err)
+		}
+	}
+
+	// Run with limit=2 (should process only 2 facts × 2 relationships each = 4)
+	count, err := mem.ConsolidateRelationships(context.Background(), "test", 2)
+	if err != nil {
+		t.Fatalf("ConsolidateRelationships failed: %v", err)
+	}
+
+	// Expect at most 2 facts processed
+	if count > 4 {
+		t.Errorf("Expected at most 4 relationships (2 facts × 2 each), got %d", count)
+	}
+}
+
+func TestReasonRelationships_Parsing(t *testing.T) {
+	reas := reasoner.NewFake("test", "test")
+	ctx := context.Background()
+
+	// Test FakeReasoner returns consistent relationships
+	rels, err := reas.ReasonRelationships(ctx, "Alice works at TechCorp")
+	if err != nil {
+		t.Fatalf("ReasonRelationships failed: %v", err)
+	}
+
+	if len(rels) != 2 {
+		t.Errorf("Expected 2 relationships from fake reasoner, got %d", len(rels))
+	}
+
+	if rels[0].FromEntity != "TestEntity1" {
+		t.Errorf("First relationship source incorrect: %q", rels[0].FromEntity)
+	}
+
+	if rels[0].Confidence < 0 || rels[0].Confidence > 1 {
+		t.Errorf("Confidence out of range: %f", rels[0].Confidence)
+	}
+}
+
+func TestConsolidateRelationships_EmptyNamespace(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// No facts in namespace
+	count, err := mem.ConsolidateRelationships(context.Background(), "empty", 10)
+	if err != nil {
+		t.Fatalf("ConsolidateRelationships failed: %v", err)
+	}
+
+	if count != 0 {
+		t.Errorf("Expected 0 relationships from empty namespace, got %d", count)
+	}
+}
+
+func TestConsolidateRelationships_OldFactsIgnored(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	// Create an old fact (older than 7 days)
+	oldTime := time.Now().UTC().Add(-10 * 24 * time.Hour)
+	oldFactID := uuid.New().String()
+	memMetaOld := map[string]any{
+		"type":              typeFact,
+		"fact_type":         typeFactState,
+		"content":           "Old fact not processed",
+		"created_at":        oldTime.Format(time.RFC3339),
+		"valid_from":        oldTime.Format(time.RFC3339),
+		"valid_until":       nil,
+		"source":            "consolidation",
+		"synthesized_from":  []string{},
+		"confidence":        0.9,
+		"observation_count": 1,
+	}
+
+	recordOld := store.Record{
+		ID:        oldFactID,
+		Namespace: "test",
+		Content:   "Old fact not processed",
+		Vectors:   map[string]store.Vector{},
+		Metadata: map[string]any{
+			"_memory": memMetaOld,
+		},
+	}
+
+	err := mem.store.Put(context.Background(), recordOld)
+	if err != nil {
+		t.Fatalf("Failed to store old fact: %v", err)
+	}
+
+	// Create a recent fact
+	nowTime := time.Now().UTC()
+	recentFactID := uuid.New().String()
+	memMetaRecent := map[string]any{
+		"type":              typeFact,
+		"fact_type":         typeFactState,
+		"content":           "Recent fact to process",
+		"created_at":        nowTime.Format(time.RFC3339),
+		"valid_from":        nowTime.Format(time.RFC3339),
+		"valid_until":       nil,
+		"source":            "consolidation",
+		"synthesized_from":  []string{},
+		"confidence":        0.9,
+		"observation_count": 1,
+	}
+
+	recordRecent := store.Record{
+		ID:        recentFactID,
+		Namespace: "test",
+		Content:   "Recent fact to process",
+		Vectors:   map[string]store.Vector{},
+		Metadata: map[string]any{
+			"_memory": memMetaRecent,
+		},
+	}
+
+	err = mem.store.Put(context.Background(), recordRecent)
+	if err != nil {
+		t.Fatalf("Failed to store recent fact: %v", err)
+	}
+
+	// Run relationship consolidation
+	count, err := mem.ConsolidateRelationships(context.Background(), "test", 10)
+	if err != nil {
+		t.Fatalf("ConsolidateRelationships failed: %v", err)
+	}
+
+	// Should only process the recent fact (2 relationships)
+	if count != 2 {
+		t.Errorf("Expected 2 relationships from recent fact only, got %d", count)
+	}
+}

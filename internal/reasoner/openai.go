@@ -165,3 +165,108 @@ Now extract:`, eventsList)
 
 	return sf, nil
 }
+
+// ReasonRelationships extracts relationships between entities from a fact.
+// Parses multi-line output with format: "From: X | RelationType: Y | To: Z | Confidence: N"
+func (o *OpenAI) ReasonRelationships(ctx context.Context, factContent string) ([]*StructuredRelationship, error) {
+	if factContent == "" {
+		return nil, errors.New("reasoner: factContent must not be empty")
+	}
+
+	prompt := fmt.Sprintf(`You are extracting semantic relationships from a fact for a knowledge graph.
+
+Fact: %s
+
+Identify all entities and relationships in this fact. For each relationship:
+- From: the subject entity name (exact as mentioned in fact)
+- RelationType: a simple, lowercase relationship type (e.g., works_at, located_in, manages, knows, created_by)
+- To: the object entity name (exact as mentioned in fact)
+- Confidence: 0.7-1.0 (how confident this relationship is valid)
+
+Format each relationship on its own line exactly like this:
+From: Subject | RelationType: type_name | To: Object | Confidence: 0.85
+
+Output only the relationships, one per line. If no relationships found, output nothing.
+
+Example fact: "Alice is an engineer at TechCorp in Paris"
+From: Alice | RelationType: works_at | To: TechCorp | Confidence: 0.9
+From: TechCorp | RelationType: located_in | To: Paris | Confidence: 0.85
+From: Alice | RelationType: role_at | To: engineer | Confidence: 0.8
+
+Now extract relationships from the given fact:`, factContent)
+
+	resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+		Model: o.model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage(prompt),
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("chat.completions call failed: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, errors.New("reasoner: no response from LLM")
+	}
+
+	output := strings.TrimSpace(resp.Choices[0].Message.Content)
+	return parseRelationships(output), nil
+}
+
+// parseRelationships parses multi-line relationship output.
+// Each line should be: "From: X | RelationType: Y | To: Z | Confidence: N"
+func parseRelationships(output string) []*StructuredRelationship {
+	var relationships []*StructuredRelationship
+	if output == "" {
+		return relationships
+	}
+
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		rel := parseRelationshipLine(line)
+		if rel != nil && rel.FromEntity != "" && rel.RelationType != "" && rel.ToEntity != "" {
+			if rel.Confidence == 0 {
+				rel.Confidence = 0.7 // default confidence if not specified
+			}
+			relationships = append(relationships, rel)
+		}
+	}
+
+	return relationships
+}
+
+// parseRelationshipLine parses a single relationship line.
+func parseRelationshipLine(line string) *StructuredRelationship {
+	// Expected format: "From: X | RelationType: Y | To: Z | Confidence: N"
+	parts := strings.Split(line, "|")
+	if len(parts) < 3 {
+		return nil
+	}
+
+	rel := &StructuredRelationship{}
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "From:") {
+			rel.FromEntity = strings.TrimSpace(strings.TrimPrefix(part, "From:"))
+		} else if strings.HasPrefix(part, "RelationType:") {
+			rel.RelationType = strings.TrimSpace(strings.TrimPrefix(part, "RelationType:"))
+		} else if strings.HasPrefix(part, "To:") {
+			rel.ToEntity = strings.TrimSpace(strings.TrimPrefix(part, "To:"))
+		} else if strings.HasPrefix(part, "Confidence:") {
+			confStr := strings.TrimSpace(strings.TrimPrefix(part, "Confidence:"))
+			var conf float32
+			fmt.Sscanf(confStr, "%f", &conf)
+			if conf > 0 && conf <= 1.0 {
+				rel.Confidence = conf
+			}
+		}
+	}
+
+	return rel
+}

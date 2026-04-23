@@ -1739,3 +1739,109 @@ func (m *Memory) GetAllRelationships(ctx context.Context, namespace string) ([]R
 
 	return result, nil
 }
+
+// ConsolidateRelationships extracts relationships from recent facts using the LLM.
+// Queries recent facts, asks LLM to identify relationships, stores them in the graph.
+// Returns the count of relationships extracted.
+// Source of all extracted relationships is set to "consolidation".
+func (m *Memory) ConsolidateRelationships(ctx context.Context, namespace string, limit int) (int, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	// Query recent facts (from last 7 days)
+	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
+	filter := store.Filter{
+		Namespaces: []string{namespace},
+		Where: &store.Predicate{
+			Field: "metadata._memory.type",
+			Op:    store.OpEq,
+			Value: typeFact,
+		},
+	}
+
+	records, err := m.store.List(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("query facts: %w", err)
+	}
+
+	var facts []Fact
+	for i := range records {
+		fact, err := FactFromRecord(&records[i])
+		if err != nil {
+			continue
+		}
+		// Only consider recent facts
+		if fact.CreatedAt.Before(sevenDaysAgo) {
+			continue
+		}
+		facts = append(facts, *fact)
+		if len(facts) >= limit {
+			break
+		}
+	}
+
+	// Extract relationships from each fact
+	extractedCount := 0
+	for _, fact := range facts {
+		// Call LLM to extract relationships
+		rels, err := m.reasoner.ReasonRelationships(ctx, fact.Content)
+		if err != nil {
+			// Log error but continue with other facts
+			continue
+		}
+
+		// Store each extracted relationship
+		for _, rel := range rels {
+			if rel.FromEntity == "" || rel.RelationType == "" || rel.ToEntity == "" {
+				continue
+			}
+
+			// Store with consolidation source and extracted confidence
+			err := m.StoreRelationship(ctx, namespace, rel.FromEntity, rel.RelationType, rel.ToEntity)
+			if err != nil {
+				// Log but continue
+				continue
+			}
+
+			// Update confidence to match LLM extraction
+			// Find the relationship we just stored and update its confidence
+			rels, err := m.GetRelationshipsFrom(ctx, namespace, rel.FromEntity)
+			if err == nil {
+				for _, stored := range rels {
+					if stored.ToEntity == rel.ToEntity && stored.RelationType == rel.RelationType {
+						// Update the metadata with extracted confidence
+						err = m.updateRelationshipConfidence(ctx, stored.ID, rel.Confidence)
+						if err == nil {
+							extractedCount++
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return extractedCount, nil
+}
+
+// updateRelationshipConfidence updates the confidence of a relationship by ID.
+// This is a helper for ConsolidateRelationships to set extracted confidence values.
+func (m *Memory) updateRelationshipConfidence(ctx context.Context, relationshipID string, confidence float32) error {
+	// Fetch the relationship record
+	record, err := m.store.Get(ctx, relationshipID)
+	if err != nil {
+		return err
+	}
+
+	// Update confidence in metadata
+	if record.Metadata == nil {
+		record.Metadata = make(map[string]any)
+	}
+	if memMeta, ok := record.Metadata["_memory"].(map[string]any); ok {
+		memMeta["confidence"] = confidence
+	}
+
+	// Put back to store
+	return m.store.Put(ctx, record)
+}

@@ -18,6 +18,18 @@ type StructuredFact struct {
 	Summary string
 }
 
+// StructuredRelationship represents an extracted relationship between two entities.
+type StructuredRelationship struct {
+	// FromEntity is the source entity (e.g., "Alice").
+	FromEntity string
+	// RelationType is the relationship type (e.g., "works_at", "located_in").
+	RelationType string
+	// ToEntity is the target entity (e.g., "TechCorp").
+	ToEntity string
+	// Confidence is how confident the LLM is in this relationship (0.0-1.0).
+	Confidence float32
+}
+
 // Reasoner synthesizes structured reasoning over text input.
 // Implementations: OpenAI (production), Fake (tests).
 type Reasoner interface {
@@ -29,6 +41,11 @@ type Reasoner interface {
 	// Attempts to extract entity, property, and value from the LLM response.
 	// Falls back to StructuredFact with empty entity/property/value if extraction fails.
 	ReasonStructured(ctx context.Context, texts []string) (*StructuredFact, error)
+
+	// ReasonRelationships takes a fact and extracts relationships between entities.
+	// Returns a slice of relationships found in the fact.
+	// Returns empty slice if no relationships found.
+	ReasonRelationships(ctx context.Context, factContent string) ([]*StructuredRelationship, error)
 
 	// Model returns the model identifier as passed at construction.
 	// Examples: "gpt-4o-mini", "gpt-4".
