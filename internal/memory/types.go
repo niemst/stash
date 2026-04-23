@@ -63,18 +63,21 @@ type BulkRemember struct {
 // Stored as a store.Record with _memory.type = "fact".
 // Facts are synthesized from clusters of similar events via LLM reasoning.
 // Temporal fields (ValidFrom, ValidUntil) track when facts are/were true.
+// Confidence tracks how many times a fact has been reinforced.
 type Fact struct {
-	ID              string         // UUID
-	Namespace       string         // same as source events
-	Content         string         // the synthesized fact text
-	SynthesizedFrom []string       // event IDs used to create this fact
-	ValidFrom       time.Time      // when this fact becomes true (required)
-	ValidUntil      *time.Time     // when fact stops being true; nil = ongoing
-	Source          string         // where fact came from: "consolidation", "user", "import"
-	ConflictWith    []string       // fact IDs with overlapping contradictions (if any)
-	CreatedAt       time.Time      // when fact was created in store
-	Metadata        map[string]any // optional caller metadata (entity, property, value, etc.)
-	Score           float32        // similarity score for retrieval
+	ID               string         // UUID
+	Namespace        string         // same as source events
+	Content          string         // the synthesized fact text
+	SynthesizedFrom  []string       // event IDs used to create this fact
+	ValidFrom        time.Time      // when this fact becomes true (required)
+	ValidUntil       *time.Time     // when fact stops being true; nil = ongoing
+	Source           string         // where fact came from: "consolidation", "user", "import"
+	ConflictWith     []string       // fact IDs with overlapping contradictions (if any)
+	Confidence       float32        // 0.0-1.0; how confident we are in this fact
+	ObservationCount int            // how many times this fact has been observed/reinforced
+	CreatedAt        time.Time      // when fact was created in store
+	Metadata         map[string]any // optional caller metadata (entity, property, value, etc.)
+	Score            float32        // similarity score for retrieval
 }
 
 // FactFromRecord extracts a Fact from a store.Record.
@@ -135,18 +138,31 @@ func FactFromRecord(r *store.Record) (*Fact, error) {
 
 	source, _ := memMeta["source"].(string)
 
+	// Extract confidence and observation count
+	confidence := float32(0.5) // Default for new facts
+	if conf, ok := memMeta["confidence"].(float64); ok {
+		confidence = float32(conf)
+	}
+
+	observationCount := 1 // Default for new facts
+	if count, ok := memMeta["observation_count"].(float64); ok {
+		observationCount = int(count)
+	}
+
 	return &Fact{
-		ID:              r.ID,
-		Namespace:       r.Namespace,
-		Content:         r.Content,
-		SynthesizedFrom: synthesizedFrom,
-		ValidFrom:       validFrom,
-		ValidUntil:      validUntil,
-		Source:          source,
-		ConflictWith:    conflictWith,
-		CreatedAt:       createdAt,
-		Metadata:        r.Metadata,
-		Score:           0, // No score for fact record (not from search)
+		ID:               r.ID,
+		Namespace:        r.Namespace,
+		Content:          r.Content,
+		SynthesizedFrom:  synthesizedFrom,
+		ValidFrom:        validFrom,
+		ValidUntil:       validUntil,
+		Source:           source,
+		ConflictWith:     conflictWith,
+		Confidence:       confidence,
+		ObservationCount: observationCount,
+		CreatedAt:        createdAt,
+		Metadata:         r.Metadata,
+		Score:            0, // No score for fact record (not from search)
 	}, nil
 }
 

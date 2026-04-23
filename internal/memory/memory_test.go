@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -2596,5 +2597,252 @@ func TestReflect_FactsWithoutEntity(t *testing.T) {
 	// But reflection should still succeed
 	if report == nil {
 		t.Fatal("report is nil")
+	}
+}
+
+// Test reinforcement
+
+func TestCalculateConfidence(t *testing.T) {
+	tests := []struct {
+		count    int
+		expected float32
+	}{
+		{0, 0.0},
+		{1, 1.0 / 3.0}, // ≈ 0.33
+		{2, 0.5},
+		{5, 5.0 / 7.0}, // ≈ 0.71
+		{10, 10.0 / 12.0}, // ≈ 0.83
+	}
+
+	for _, tt := range tests {
+		result := calculateConfidence(tt.count)
+		// Allow small floating point error
+		if tt.expected == 0.0 {
+			if result != 0.0 {
+				t.Errorf("count=%d: expected 0.0, got %.4f", tt.count, result)
+			}
+		} else {
+			relErr := (result - tt.expected) / tt.expected
+			if relErr < -0.01 || relErr > 0.01 {
+				t.Errorf("count=%d: expected ~%.4f, got %.4f", tt.count, tt.expected, result)
+			}
+		}
+	}
+}
+
+func TestReinforce_ExistingFact(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-reinforce"
+	now := time.Date(2026, 4, 23, 12, 0, 0, 0, time.UTC)
+
+	// Create a fact
+	fact := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Mohamed speaks French",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":               "fact",
+				"valid_from":         now.Format(time.RFC3339),
+				"valid_until":        nil,
+				"source":             "consolidation",
+				"confidence":         0.5,
+				"observation_count":  1,
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	mem.store.Put(ctx, fact)
+
+	// Reinforce it
+	err := mem.Reinforce(ctx, ns, "Mohamed", "language", "French")
+	if err != nil {
+		t.Fatalf("Reinforce failed: %v", err)
+	}
+
+	// Verify updated
+	updated, _ := mem.store.Get(ctx, fact.ID)
+	memMeta := updated.Metadata["_memory"].(map[string]any)
+
+	newCount := int(memMeta["observation_count"].(float64))
+	if newCount != 2 {
+		t.Errorf("expected count 2, got %d", newCount)
+	}
+
+	newConf := float32(memMeta["confidence"].(float64))
+	expectedConf := calculateConfidence(2)
+	if math.Abs(float64(newConf-expectedConf)) > 0.01 {
+		t.Errorf("expected confidence ~%.4f, got %.4f", expectedConf, newConf)
+	}
+}
+
+func TestReinforce_MultipleReinforcements(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-reinforce"
+	now := time.Date(2026, 4, 23, 12, 0, 0, 0, time.UTC)
+
+	factID := uuid.New().String()
+
+	// Create a fact
+	fact := store.Record{
+		ID:        factID,
+		Namespace: ns,
+		Content:   "Test fact",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":               "fact",
+				"valid_from":         now.Format(time.RFC3339),
+				"valid_until":        nil,
+				"source":             "consolidation",
+				"confidence":         0.5,
+				"observation_count":  1,
+			},
+			"entity":   "Entity",
+			"property": "prop",
+			"value":    "val",
+		},
+	}
+
+	mem.store.Put(ctx, fact)
+
+	// Reinforce multiple times
+	for i := 0; i < 4; i++ {
+		err := mem.Reinforce(ctx, ns, "Entity", "prop", "val")
+		if err != nil {
+			t.Fatalf("Reinforce %d failed: %v", i+1, err)
+		}
+	}
+
+	// Verify final state
+	updated, _ := mem.store.Get(ctx, factID)
+	memMeta := updated.Metadata["_memory"].(map[string]any)
+
+	finalCount := int(memMeta["observation_count"].(float64))
+	if finalCount != 5 { // 1 initial + 4 reinforcements
+		t.Errorf("expected count 5, got %d", finalCount)
+	}
+
+	finalConf := float32(memMeta["confidence"].(float64))
+	expectedConf := calculateConfidence(5)
+	if math.Abs(float64(finalConf-expectedConf)) > 0.01 {
+		t.Errorf("expected confidence ~%.4f, got %.4f", expectedConf, finalConf)
+	}
+}
+
+func TestReinforce_NotFound(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-reinforce"
+
+	// Try to reinforce non-existent fact
+	err := mem.Reinforce(ctx, ns, "NonExistent", "prop", "val")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+func TestReinforce_DifferentValue(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-reinforce"
+	now := time.Date(2026, 4, 23, 12, 0, 0, 0, time.UTC)
+
+	// Create a fact with value "French"
+	fact := store.Record{
+		ID:        uuid.New().String(),
+		Namespace: ns,
+		Content:   "Test",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":               "fact",
+				"valid_from":         now.Format(time.RFC3339),
+				"valid_until":        nil,
+				"source":             "consolidation",
+				"confidence":         0.5,
+				"observation_count":  1,
+			},
+			"entity":   "Mohamed",
+			"property": "language",
+			"value":    "French",
+		},
+	}
+
+	mem.store.Put(ctx, fact)
+
+	// Try to reinforce with different value ("Spanish")
+	err := mem.Reinforce(ctx, ns, "Mohamed", "language", "Spanish")
+	if err == nil {
+		t.Error("expected error for different value, got nil")
+	}
+}
+
+func TestReinforce_PersistsToStore(t *testing.T) {
+	mem, cleanup := startMemory(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ns := "test-reinforce"
+	now := time.Date(2026, 4, 23, 12, 0, 0, 0, time.UTC)
+
+	factID := uuid.New().String()
+
+	fact := store.Record{
+		ID:        factID,
+		Namespace: ns,
+		Content:   "Test",
+		Vectors: map[string]store.Vector{
+			"fake": {Values: []float32{1, 0, 0, 0, 0, 0, 0, 0}, Model: "fake"},
+		},
+		Metadata: map[string]any{
+			"_memory": map[string]any{
+				"type":               "fact",
+				"valid_from":         now.Format(time.RFC3339),
+				"valid_until":        nil,
+				"source":             "consolidation",
+				"confidence":         0.5,
+				"observation_count":  1,
+			},
+			"entity":   "Entity",
+			"property": "prop",
+			"value":    "val",
+		},
+	}
+
+	mem.store.Put(ctx, fact)
+
+	// Reinforce
+	mem.Reinforce(ctx, ns, "Entity", "prop", "val")
+
+	// Retrieve and verify persistence
+	retrieved, _ := mem.store.Get(ctx, factID)
+	parsedFact, _ := FactFromRecord(&retrieved)
+
+	if parsedFact.ObservationCount != 2 {
+		t.Errorf("expected count 2, got %d", parsedFact.ObservationCount)
+	}
+	if parsedFact.Confidence != calculateConfidence(2) {
+		t.Errorf("expected confidence %.4f, got %.4f", calculateConfidence(2), parsedFact.Confidence)
 	}
 }

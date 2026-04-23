@@ -904,13 +904,15 @@ func (m *Memory) ConsolidateRecent(
 		now := time.Now().UTC()
 
 		memMeta := map[string]any{
-			"type":              typeFact,
-			"content":           factText,
-			"created_at":        now.Format(time.RFC3339),
-			"valid_from":        now.Format(time.RFC3339), // Fact becomes true now
-			"valid_until":       nil,                       // Ongoing until updated
-			"source":            "consolidation",           // Mark synthesized facts
-			"synthesized_from":  eventIDs,
+			"type":               typeFact,
+			"content":            factText,
+			"created_at":         now.Format(time.RFC3339),
+			"valid_from":         now.Format(time.RFC3339), // Fact becomes true now
+			"valid_until":        nil,                       // Ongoing until updated
+			"source":             "consolidation",           // Mark synthesized facts
+			"synthesized_from":   eventIDs,
+			"confidence":         0.5,                       // New facts start at 50% confidence
+			"observation_count":  1,                         // First observation
 		}
 		if len(conflicts) > 0 {
 			memMeta["conflict_with"] = conflicts
@@ -1356,4 +1358,85 @@ func (m *Memory) Reflect(ctx context.Context, namespace string) (*ReflectionRepo
 	}
 
 	return report, nil
+}
+
+// calculateConfidence computes confidence from observation count.
+// Formula: count / (count + 2)
+// Examples:
+//   count=1: 1/3 ≈ 0.33 (weak)
+//   count=5: 5/7 ≈ 0.71 (strong)
+//   count=10: 10/12 ≈ 0.83 (very strong)
+func calculateConfidence(observationCount int) float32 {
+	if observationCount <= 0 {
+		return 0.0
+	}
+	confidence := float32(observationCount) / float32(observationCount+2)
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	return confidence
+}
+
+// Reinforce increments the observation count for a fact matching entity+property+value.
+// If a matching fact exists, updates its observation count and confidence.
+// If no match exists, returns error (caller should consolidate instead).
+//
+// Used when the same fact is observed again, reinforcing its truthfulness.
+// Typically called during consolidation when duplicate facts are detected.
+func (m *Memory) Reinforce(ctx context.Context, namespace, entity, property, value string) error {
+	if entity == "" || property == "" || value == "" {
+		return fmt.Errorf("reinforce: entity, property, and value must not be empty")
+	}
+
+	// Query all facts in namespace to find matching one
+	filter := store.Filter{
+		Namespaces: []string{namespace},
+		Where: &store.Predicate{
+			Field: "metadata._memory.type",
+			Op:    store.OpEq,
+			Value: typeFact,
+		},
+	}
+
+	records, err := m.store.List(ctx, filter)
+	if err != nil {
+		return err
+	}
+
+	// Find matching fact: entity+property+value
+	var targetFact *Fact
+	var targetRecord *store.Record
+
+	for i := range records {
+		fact, err := FactFromRecord(&records[i])
+		if err != nil {
+			continue
+		}
+
+		factEntity, _ := fact.Metadata["entity"].(string)
+		factProperty, _ := fact.Metadata["property"].(string)
+		factValue, _ := fact.Metadata["value"].(string)
+
+		if factEntity == entity && factProperty == property && factValue == value {
+			targetFact = fact
+			targetRecord = &records[i]
+			break
+		}
+	}
+
+	if targetFact == nil {
+		return fmt.Errorf("reinforce: no fact found for entity=%q property=%q value=%q", entity, property, value)
+	}
+
+	// Increment count and recalculate confidence
+	targetFact.ObservationCount++
+	targetFact.Confidence = calculateConfidence(targetFact.ObservationCount)
+
+	// Update metadata in record
+	memMeta := targetRecord.Metadata["_memory"].(map[string]any)
+	memMeta["confidence"] = float64(targetFact.Confidence)
+	memMeta["observation_count"] = float64(targetFact.ObservationCount)
+
+	// Store updated record
+	return m.store.Put(ctx, *targetRecord)
 }
