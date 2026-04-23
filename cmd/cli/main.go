@@ -130,6 +130,82 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "facts",
+				Usage: "Manage facts and cognitive processes",
+				Commands: []*cli.Command{
+					{
+						Name:   "consolidate",
+						Usage:  "Synthesize recent events into facts",
+						Action: consolidateCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "namespace",
+								Usage: "Namespace to consolidate (optional)",
+							},
+							&cli.StringFlag{
+								Name:  "window",
+								Usage: "Time window for recent events (e.g., 1h, 30m)",
+								Value: "1h",
+							},
+							&cli.IntFlag{
+								Name:  "limit",
+								Usage: "Maximum number of events to process",
+								Value: 100,
+							},
+						},
+					},
+					{
+						Name:   "contradictions",
+						Usage:  "Find contradictions in facts",
+						Action: contradictionsCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "namespace",
+								Usage: "Namespace to check (optional)",
+							},
+						},
+					},
+					{
+						Name:   "reflect",
+						Usage:  "Introspect memory state and generate report",
+						Action: reflectCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "namespace",
+								Usage: "Namespace to reflect on (optional)",
+							},
+						},
+					},
+					{
+						Name:   "reinforce",
+						Usage:  "Strengthen a fact by increasing observation count",
+						Action: reinforceCmd,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "entity",
+								Usage:    "Entity identifier (required)",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "property",
+								Usage:    "Property name (required)",
+								Required: true,
+							},
+							&cli.StringFlag{
+								Name:     "value",
+								Usage:    "Property value (required)",
+								Required: true,
+							},
+							&cli.IntFlag{
+								Name:  "count",
+								Usage: "Number of times to reinforce",
+								Value: 1,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
