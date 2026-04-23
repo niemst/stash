@@ -26,3 +26,23 @@ type WorkingMemory struct {
 	UpdatedAt time.Time
 	ExpiresAt time.Time
 }
+
+// Relation represents a directed semantic link between two events.
+// Stored as a store.Record with _memory.type = "relationship".
+type Relation struct {
+	ID           string         // generated UUID
+	Namespace    string         // same namespace as linked events
+	FromEventID  string         // source event
+	ToEventID    string         // target event
+	RelationType string         // e.g., "contradicts", "caused_by"
+	Metadata     map[string]any // optional caller metadata
+	CreatedAt    time.Time
+}
+
+// Supported relation types (extensible)
+const (
+	RelationTypeContradicts = "contradicts" // A contradicts B
+	RelationTypeCausedBy    = "caused_by"   // A caused B
+	RelationTypeSimilarTo   = "similar_to"  // A is similar to B
+	RelationTypeReferences  = "references"  // A references B
+)

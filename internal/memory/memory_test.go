@@ -746,3 +746,237 @@ func TestRecallWhere_InvalidLimit(t *testing.T) {
 		t.Errorf("expected ErrInvalidLimit, got %v", err)
 	}
 }
+
+func TestLinkEvents_Success(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	// Create two events
+	event1ID, err := mem.Remember(ctx, ns, "Event A", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	event2ID, err := mem.Remember(ctx, ns, "Event B", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	// Link them
+	relationID, err := mem.LinkEvents(ctx, ns, event1ID, event2ID, RelationTypeContradicts, nil)
+	if err != nil {
+		t.Fatalf("LinkEvents failed: %v", err)
+	}
+
+	if relationID == "" {
+		t.Fatal("expected relation ID, got empty string")
+	}
+
+	// Verify relationship was stored
+	rel, err := s.Get(ctx, relationID)
+	if err != nil {
+		t.Fatalf("relationship not found in store: %v", err)
+	}
+
+	memMeta, ok := rel.Metadata["_memory"].(map[string]any)
+	if !ok {
+		t.Fatal("missing _memory metadata in relationship")
+	}
+
+	if memMeta["type"] != "relationship" {
+		t.Errorf("expected type=relationship, got %v", memMeta["type"])
+	}
+	if memMeta["from_event_id"] != event1ID {
+		t.Errorf("expected from_event_id=%s, got %v", event1ID, memMeta["from_event_id"])
+	}
+	if memMeta["to_event_id"] != event2ID {
+		t.Errorf("expected to_event_id=%s, got %v", event2ID, memMeta["to_event_id"])
+	}
+	if memMeta["relation_type"] != RelationTypeContradicts {
+		t.Errorf("expected relation_type=%s, got %v", RelationTypeContradicts, memMeta["relation_type"])
+	}
+}
+
+func TestLinkEvents_SelfLink_Error(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	eventID, err := mem.Remember(ctx, ns, "Event", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	// Try to link event to itself
+	_, err = mem.LinkEvents(ctx, ns, eventID, eventID, RelationTypeContradicts, nil)
+	if err == nil {
+		t.Fatal("expected error for self-link, got nil")
+	}
+}
+
+func TestLinkEvents_NonexistentEvent_Error(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	eventID, err := mem.Remember(ctx, ns, "Event", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	// Try to link to nonexistent event
+	_, err = mem.LinkEvents(ctx, ns, eventID, "nonexistent-id", RelationTypeContradicts, nil)
+	if err == nil {
+		t.Fatal("expected error for nonexistent event, got nil")
+	}
+}
+
+func TestFindRelated_Success(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	// Create three events
+	event1ID, err := mem.Remember(ctx, ns, "Event A contradicts others", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	event2ID, err := mem.Remember(ctx, ns, "Event B contradicted by A", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	_, err = mem.Remember(ctx, ns, "Event C unrelated", nil)
+	if err != nil {
+		t.Fatalf("Remember failed: %v", err)
+	}
+
+	// Link: event1 contradicts event2
+	_, err = mem.LinkEvents(ctx, ns, event1ID, event2ID, RelationTypeContradicts, nil)
+	if err != nil {
+		t.Fatalf("LinkEvents failed: %v", err)
+	}
+
+	// Find what event1 contradicts
+	relatedEvents, err := mem.FindRelated(ctx, ns, event1ID, RelationTypeContradicts)
+	if err != nil {
+		t.Fatalf("FindRelated failed: %v", err)
+	}
+
+	if len(relatedEvents) != 1 {
+		t.Errorf("expected 1 related event, got %d", len(relatedEvents))
+	}
+
+	if relatedEvents[0].ID != event2ID {
+		t.Errorf("expected related event ID %s, got %s", event2ID, relatedEvents[0].ID)
+	}
+}
+
+func TestFindRelated_MultipleRelations(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	// Create events
+	eventAID, _ := mem.Remember(ctx, ns, "Event A", nil)
+	eventBID, _ := mem.Remember(ctx, ns, "Event B", nil)
+	eventCID, _ := mem.Remember(ctx, ns, "Event C", nil)
+	eventDID, _ := mem.Remember(ctx, ns, "Event D", nil)
+
+	// Create multiple relationships from A
+	mem.LinkEvents(ctx, ns, eventAID, eventBID, RelationTypeContradicts, nil)
+	mem.LinkEvents(ctx, ns, eventAID, eventCID, RelationTypeContradicts, nil)
+	mem.LinkEvents(ctx, ns, eventAID, eventDID, RelationTypeCausedBy, nil) // Different type
+
+	// Find all contradictions from A
+	contradictions, err := mem.FindRelated(ctx, ns, eventAID, RelationTypeContradicts)
+	if err != nil {
+		t.Fatalf("FindRelated failed: %v", err)
+	}
+
+	if len(contradictions) != 2 {
+		t.Errorf("expected 2 contradictions, got %d", len(contradictions))
+	}
+
+	// Find causes from A
+	causes, err := mem.FindRelated(ctx, ns, eventAID, RelationTypeCausedBy)
+	if err != nil {
+		t.Fatalf("FindRelated failed: %v", err)
+	}
+
+	if len(causes) != 1 {
+		t.Errorf("expected 1 cause, got %d", len(causes))
+	}
+
+	if causes[0].ID != eventDID {
+		t.Errorf("expected event D, got %s", causes[0].ID)
+	}
+}
+
+func TestLinkEvents_InvalidMetadata(t *testing.T) {
+	s, cleanup := startStore(t)
+	defer cleanup()
+
+	mem, err := New(s, embedder.NewFake())
+	if err != nil {
+		t.Fatalf("failed to create memory: %v", err)
+	}
+	defer mem.Close()
+
+	ctx := context.Background()
+	ns := "test-ns"
+
+	eventAID, _ := mem.Remember(ctx, ns, "Event A", nil)
+	eventBID, _ := mem.Remember(ctx, ns, "Event B", nil)
+
+	// Try to use _memory-prefixed metadata
+	_, err = mem.LinkEvents(ctx, ns, eventAID, eventBID, RelationTypeContradicts, map[string]any{
+		"_memory.foo": "bar",
+	})
+
+	if !errors.Is(err, ErrInvalidMetadata) {
+		t.Errorf("expected ErrInvalidMetadata, got %v", err)
+	}
+}

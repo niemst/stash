@@ -230,6 +230,163 @@ func (m *Memory) WorkingMemory(ctx context.Context, namespace, input string) (Wo
 	return wm, nil
 }
 
+// LinkEvents creates a directed relationship from fromID to toID.
+// Returns the relation ID.
+// Both events must exist in the namespace (validated).
+// relationType must be one of the known types.
+// metadata must not contain "_memory" keys.
+func (m *Memory) LinkEvents(
+	ctx context.Context,
+	namespace string,
+	fromID string,
+	toID string,
+	relationType string,
+	metadata map[string]any,
+) (string, error) {
+	// Validate inputs
+	if fromID == "" || toID == "" {
+		return "", ErrEmptyContent // Reuse for missing ID
+	}
+
+	if fromID == toID {
+		return "", errors.New("memory: cannot link event to itself")
+	}
+
+	if err := validateMetadata(metadata); err != nil {
+		return "", err
+	}
+
+	// Verify both events exist
+	if _, err := m.store.Get(ctx, fromID); err != nil {
+		return "", errors.New("memory: from_event not found")
+	}
+	if _, err := m.store.Get(ctx, toID); err != nil {
+		return "", errors.New("memory: to_event not found")
+	}
+
+	// Validate relation type (allow any string for extensibility, but document the standard types)
+	if relationType == "" {
+		return "", errors.New("memory: relation_type cannot be empty")
+	}
+
+	now := time.Now().UTC()
+	relationID := uuid.New().String()
+
+	memMeta := map[string]any{
+		"type":           "relationship",
+		"from_event_id":  fromID,
+		"to_event_id":    toID,
+		"relation_type":  relationType,
+		"created_at":     now.Format(time.RFC3339),
+	}
+
+	recordMeta := map[string]any{
+		"_memory": memMeta,
+	}
+	for k, v := range metadata {
+		recordMeta[k] = v
+	}
+
+	record := store.Record{
+		ID:        relationID,
+		Namespace: namespace,
+		Content:   "", // relationships are metadata-only
+		Metadata:  recordMeta,
+	}
+
+	if err := m.store.Put(ctx, record); err != nil {
+		return "", err
+	}
+
+	return relationID, nil
+}
+
+// FindRelated retrieves all events that are related to eventID by relationType.
+// Returns events that satisfy: exists relation where from_event=eventID AND type=relationType.
+// Returns empty slice if no relations found.
+func (m *Memory) FindRelated(
+	ctx context.Context,
+	namespace string,
+	eventID string,
+	relationType string,
+) ([]Event, error) {
+	if eventID == "" {
+		return nil, ErrEmptyContent
+	}
+	if relationType == "" {
+		return nil, errors.New("memory: relation_type cannot be empty")
+	}
+
+	// Query for relationship records
+	filter := &store.Predicate{
+		And: []store.Predicate{
+			{
+				Field: "metadata._memory.type",
+				Op:    store.OpEq,
+				Value: "relationship",
+			},
+			{
+				Field: "metadata._memory.from_event_id",
+				Op:    store.OpEq,
+				Value: eventID,
+			},
+			{
+				Field: "metadata._memory.relation_type",
+				Op:    store.OpEq,
+				Value: relationType,
+			},
+		},
+	}
+
+	// List all matching relationship records
+	relationships, err := m.store.List(ctx, store.Filter{
+		Namespaces: []string{namespace},
+		Where:      filter,
+		Limit:      10000, // reasonable upper bound
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(relationships) == 0 {
+		return []Event{}, nil
+	}
+
+	// Extract toEventIDs from relationships
+	toEventIDs := make([]string, 0, len(relationships))
+	for _, rel := range relationships {
+		memMeta, ok := rel.Metadata["_memory"].(map[string]any)
+		if !ok {
+			continue
+		}
+		toID, ok := memMeta["to_event_id"].(string)
+		if ok && toID != "" {
+			toEventIDs = append(toEventIDs, toID)
+		}
+	}
+
+	if len(toEventIDs) == 0 {
+		return []Event{}, nil
+	}
+
+	// Fetch the actual events
+	events := make([]Event, 0, len(toEventIDs))
+	for _, toID := range toEventIDs {
+		record, err := m.store.Get(ctx, toID)
+		if err != nil {
+			// Skip events that don't exist (orphaned relationships)
+			continue
+		}
+		e, err := recordToEvent(record, 0) // score is 0 for related events (not from search)
+		if err != nil {
+			continue
+		}
+		events = append(events, e)
+	}
+
+	return events, nil
+}
+
 // Close releases any resources held by Memory.
 func (m *Memory) Close() error {
 	return nil
