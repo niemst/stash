@@ -60,6 +60,7 @@ func serverCmd(ctx context.Context, cmd *cli.Command) error {
 	e := echo.New()
 
 	// Middleware
+	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 
 	// Routes - Core agent operations only
