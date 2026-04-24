@@ -2,18 +2,27 @@ package brain
 
 import (
 	"context"
+	"log"
 	"time"
+)
+
+const (
+	pipelineDebounceInterval = 5 * time.Second
+	pipelineDebounceWindow   = 10 * time.Second
+	pipelineCleanupInterval  = 1 * time.Minute
+	consolidationWindow      = 7 * 24 * time.Hour
+	similarityThreshold      = 0.85
 )
 
 // Run starts the background pipeline.
 // Consolidates memories periodically.
 // Blocks until ctx is cancelled.
 func (b *Brain) Run(ctx context.Context) error {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(pipelineCleanupInterval)
 	defer ticker.Stop()
 
 	pending := make(map[string]time.Time) // namespace -> first seen
-	debounce := time.NewTicker(5 * time.Second)
+	debounce := time.NewTicker(pipelineDebounceInterval)
 	defer debounce.Stop()
 
 	for {
@@ -24,16 +33,21 @@ func (b *Brain) Run(ctx context.Context) error {
 				pending[ns] = time.Now()
 			}
 		case <-debounce.C:
-			// Process namespaces that have been idle for 10s
+			// Collect namespaces to process (avoid map modification during iteration)
 			now := time.Now()
+			var toProcess []string
 			for ns, since := range pending {
-				if now.Sub(since) >= 10*time.Second {
-					b.consolidate(ctx, ns)
-					delete(pending, ns)
+				if now.Sub(since) >= pipelineDebounceWindow {
+					toProcess = append(toProcess, ns)
 				}
 			}
+			// Process and remove
+			for _, ns := range toProcess {
+				b.consolidate(ctx, ns)
+				delete(pending, ns)
+			}
 		case <-ticker.C:
-			// Periodic cleanup
+			// Periodic cleanup (currently no-op)
 			b.purgeExpired(ctx)
 		case <-ctx.Done():
 			return ctx.Err()
@@ -44,28 +58,28 @@ func (b *Brain) Run(ctx context.Context) error {
 // consolidate processes recent events into facts and extracts relationships.
 func (b *Brain) consolidate(ctx context.Context, namespace string) {
 	// Check context before starting expensive work
-	select {
-	case <-ctx.Done():
+	if checkContext(ctx) {
 		return
-	default:
 	}
 
-	// Query recent events (last 7 days)
-	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
-	records, err := b.queryRecentEventRecords(ctx, namespace, sevenDaysAgo)
-	if err != nil || len(records) == 0 {
+	// Query recent events
+	since := time.Now().Add(-consolidationWindow)
+	records, err := b.queryRecentEventRecords(ctx, namespace, since)
+	if err != nil {
+		log.Printf("brain: consolidate queryRecentEventRecords failed for namespace=%q: %v", namespace, err)
+		return
+	}
+	if len(records) == 0 {
 		return
 	}
 
 	// Cluster by similarity
-	clusters := b.clusterRecordsBySimilarity(records, 0.85)
+	clusters := b.clusterRecordsBySimilarity(records, similarityThreshold)
 
 	for _, cluster := range clusters {
 		// Check context cancellation
-		select {
-		case <-ctx.Done():
+		if checkContext(ctx) {
 			return
-		default:
 		}
 
 		if len(cluster) < 2 {
@@ -83,6 +97,7 @@ func (b *Brain) consolidate(ctx context.Context, namespace string) {
 		// Use LLM to synthesize fact
 		structured, err := b.reasoner.ReasonStructured(ctx, texts)
 		if err != nil {
+			log.Printf("brain: consolidate ReasonStructured failed: %v", err)
 			continue
 		}
 
@@ -98,6 +113,7 @@ func (b *Brain) consolidate(ctx context.Context, namespace string) {
 
 		err = b.storeFact(ctx, namespace, structured.Summary, factType, len(cluster), "consolidation", eventIDs)
 		if err != nil {
+			log.Printf("brain: consolidate storeFact failed: %v", err)
 			continue
 		}
 	}
@@ -109,24 +125,22 @@ func (b *Brain) consolidate(ctx context.Context, namespace string) {
 // extractRelationships uses the LLM to find relationships in facts.
 func (b *Brain) extractRelationships(ctx context.Context, namespace string) {
 	// Check context before starting
-	select {
-	case <-ctx.Done():
+	if checkContext(ctx) {
 		return
-	default:
 	}
 
 	facts, err := b.queryFacts(ctx, namespace)
 	if err != nil {
+		log.Printf("brain: extractRelationships queryFacts failed for namespace=%q: %v", namespace, err)
 		return
 	}
 
 	for _, fact := range facts {
 		// Check context cancellation in loop
-		select {
-		case <-ctx.Done():
+		if checkContext(ctx) {
 			return
-		default:
 		}
+
 		// Skip facts that already have relationships extracted
 		if fact.Source == "relationship" {
 			continue
@@ -134,18 +148,31 @@ func (b *Brain) extractRelationships(ctx context.Context, namespace string) {
 
 		relationships, err := b.reasoner.ReasonRelationships(ctx, fact.Content)
 		if err != nil {
+			log.Printf("brain: extractRelationships ReasonRelationships failed for fact %s: %v", fact.ID, err)
 			continue
 		}
 
 		for _, rel := range relationships {
-			b.storeRelationship(ctx, namespace, rel.FromEntity, rel.RelationType, rel.ToEntity, "consolidation", rel.Confidence)
+			err := b.storeRelationship(ctx, namespace, rel.FromEntity, rel.RelationType, rel.ToEntity, "consolidation", rel.Confidence)
+			if err != nil {
+				log.Printf("brain: storeRelationship failed: %v", err)
+			}
 		}
 	}
 }
 
 // purgeExpired removes expired memories.
+// Currently a no-op as Remember() does not set TTL.
 func (b *Brain) purgeExpired(ctx context.Context) {
-	// Query all events with expires_at < now
-	// This is a simplified placeholder - full implementation would query by expiration
-	// For now, this is a no-op as we don't set expiration in Remember()
+	// No-op: TTL support not implemented yet
+}
+
+// checkContext returns true if context is cancelled.
+func checkContext(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
