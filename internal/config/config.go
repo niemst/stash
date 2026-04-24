@@ -21,9 +21,9 @@ type Config struct {
 	OpenAIBaseURL  string `env:"STASH_OPENAI_BASE_URL,required"`
 	EmbeddingModel string `env:"STASH_EMBEDDING_MODEL,required"`
 
-	// Reasoner (optional for consolidation; defaults to fake if not set)
-	ReasonerDriver string `env:"STASH_REASONER_DRIVER" envDefault:"fake"`
-	ReasonerModel  string `env:"STASH_REASONER_MODEL" envDefault:"fake"`
+	// Reasoner (required for relationship extraction and consolidation)
+	ReasonerDriver string `env:"STASH_REASONER_DRIVER,required"`
+	ReasonerModel  string `env:"STASH_REASONER_MODEL,required"`
 
 	// Memory
 	ContextTTL time.Duration `env:"STASH_CONTEXT_TTL,required"`

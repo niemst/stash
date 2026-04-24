@@ -367,45 +367,53 @@ stash facts graph --entity=<entity> --namespace=<ns> --depth=2
 
 ### Required Environment Variables
 
-**Store:**
-- `STASH_STORE_DRIVER` — Storage backend: `mapdb` (in-memory) or `postgres`
-- `STASH_STORE_POSTGRES_DSN` — PostgreSQL connection string (if driver=postgres)
+**All variables are required. No defaults.**
 
-**Embedder:**
-- `STASH_EMBEDDER_DRIVER` — Embedding service: `openai` (default is fake for testing)
-- `STASH_EMBEDDER_MODEL` — Model name: e.g., `text-embedding-3-small`
-- `STASH_OPENAI_API_KEY` — API key for embedder
+**Store (PostgreSQL only):**
+- `STASH_STORE_DRIVER=postgres` — Storage backend
+- `STASH_STORE_DSN` — PostgreSQL connection string
+- `STASH_VECTOR_DIM=1536` — Vector dimensions (matches embedding model)
+- `STASH_MAX_RESULT_SIZE=10000` — Maximum records per query
 
-**Reasoner (LLM):**
-- `STASH_REASONER_DRIVER` — LLM provider: `openai`
-- `STASH_REASONER_MODEL` — Model name: e.g., `gpt-4o-mini`
-- `STASH_OPENAI_API_KEY` — API key (shared with embedder if same provider)
+**Embedder (OpenAI only):**
+- `STASH_EMBEDDER_DRIVER=openai` — Embedding service
+- `STASH_OPENAI_BASE_URL=https://api.openai.com/v1` — OpenAI API endpoint
+- `STASH_OPENAI_API_KEY` — API key
+- `STASH_EMBEDDING_MODEL=text-embedding-3-small` — Model name
 
-### Optional Environment Variables
+**Reasoner (OpenAI only):**
+- `STASH_REASONER_DRIVER=openai` — LLM provider
+- `STASH_REASONER_MODEL=gpt-4o-mini` — Model name
 
-- `STASH_LOG_LEVEL` — Logging level: `debug`, `info`, `warn`, `error`
+**Memory:**
+- `STASH_CONTEXT_TTL=1h` — Working memory context TTL
+
+**Server:**
+- `STASH_HTTP_ADDR=:8080` — Server listen address
+- `STASH_LOG_LEVEL=info` — Logging level: `debug`, `info`, `warn`, `error`
+- `STASH_LOG_FORMAT=json` — Log format: `json` or `text`
 
 ### Example Configuration
 
 ```bash
-# In-memory store with OpenAI embeddings and LLM
-export STASH_STORE_DRIVER=mapdb
-export STASH_EMBEDDER_DRIVER=openai
-export STASH_EMBEDDER_MODEL=text-embedding-3-small
-export STASH_REASONER_DRIVER=openai
-export STASH_REASONER_MODEL=gpt-4o-mini
-export STASH_OPENAI_API_KEY=sk-...
-```
-
-```bash
-# Production: PostgreSQL with OpenAI
+# Complete production configuration
 export STASH_STORE_DRIVER=postgres
-export STASH_STORE_POSTGRES_DSN="postgresql://user:pass@localhost/stash"
+export STASH_STORE_DSN="postgresql://user:pass@localhost/stash"
+export STASH_VECTOR_DIM=1536
+export STASH_MAX_RESULT_SIZE=10000
+
 export STASH_EMBEDDER_DRIVER=openai
-export STASH_EMBEDDER_MODEL=text-embedding-3-small
+export STASH_OPENAI_BASE_URL=https://api.openai.com/v1
+export STASH_OPENAI_API_KEY=sk-...
+export STASH_EMBEDDING_MODEL=text-embedding-3-small
+
 export STASH_REASONER_DRIVER=openai
 export STASH_REASONER_MODEL=gpt-4o-mini
-export STASH_OPENAI_API_KEY=sk-...
+
+export STASH_CONTEXT_TTL=1h
+export STASH_HTTP_ADDR=:8080
+export STASH_LOG_LEVEL=info
+export STASH_LOG_FORMAT=json
 ```
 
 ---

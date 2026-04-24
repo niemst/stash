@@ -101,44 +101,60 @@ These operations are intentionally CLI-only because:
 
 ## Configuration
 
-The server respects all Stash environment variables:
+The server requires these environment variables:
 
 ```bash
-# Database
-STASH_STORE_TYPE=postgres  # or 'memory' for in-memory
-STASH_POSTGRES_URL=postgres://user:pass@localhost/stash
+# Storage (PostgreSQL required)
+STASH_STORE_DRIVER=postgres
+STASH_STORE_DSN=postgres://user:pass@localhost/stash
+STASH_VECTOR_DIM=1536
+STASH_MAX_RESULT_SIZE=10000
 
-# LLM Reasoning
-STASH_REASONER_TYPE=openai  # or 'fake' for testing
+# Embeddings (OpenAI required)
+STASH_EMBEDDER_DRIVER=openai
 STASH_OPENAI_API_KEY=sk-...
-STASH_OPENAI_MODEL=gpt-4
+STASH_OPENAI_BASE_URL=https://api.openai.com/v1
+STASH_EMBEDDING_MODEL=text-embedding-3-small
 
-# Embedding
-STASH_EMBEDDER_TYPE=openai  # or 'fake' for testing
+# Reasoning (OpenAI required)
+STASH_REASONER_DRIVER=openai
+STASH_REASONER_MODEL=gpt-4o-mini
+
+# Memory
+STASH_CONTEXT_TTL=1h
+
+# Server
+STASH_HTTP_ADDR=:8080
+STASH_LOG_LEVEL=info
+STASH_LOG_FORMAT=json
 ```
 
 ## Docker
 
-Run the server in Docker:
+Run the server in Docker with PostgreSQL:
 
 ```bash
-docker build -t stash .
-docker run -p 8080:8080 \
-  -e STASH_STORE_TYPE=memory \
-  -e STASH_REASONER_TYPE=fake \
-  -e STASH_EMBEDDER_TYPE=fake \
-  stash server --host 0.0.0.0
-```
-
-With docker-compose:
-
-```bash
+# Start PostgreSQL
 docker-compose up -d postgres
+
+# Run stash server
 docker run -p 8080:8080 \
   --network stash-network \
-  -e STASH_STORE_TYPE=postgres \
-  -e STASH_POSTGRES_URL=postgres://stash:stash_dev_password@postgres/stash \
-  stash server
+  -e STASH_STORE_DRIVER=postgres \
+  -e STASH_STORE_DSN=postgres://stash:stash_dev_password@postgres/stash \
+  -e STASH_VECTOR_DIM=1536 \
+  -e STASH_MAX_RESULT_SIZE=10000 \
+  -e STASH_EMBEDDER_DRIVER=openai \
+  -e STASH_OPENAI_API_KEY=sk-... \
+  -e STASH_OPENAI_BASE_URL=https://api.openai.com/v1 \
+  -e STASH_EMBEDDING_MODEL=text-embedding-3-small \
+  -e STASH_REASONER_DRIVER=openai \
+  -e STASH_REASONER_MODEL=gpt-4o-mini \
+  -e STASH_CONTEXT_TTL=1h \
+  -e STASH_HTTP_ADDR=:8080 \
+  -e STASH_LOG_LEVEL=info \
+  -e STASH_LOG_FORMAT=json \
+  stash server --host 0.0.0.0
 ```
 
 ## Error Handling

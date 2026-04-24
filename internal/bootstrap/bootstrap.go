@@ -12,7 +12,6 @@ import (
 	"github.com/alash3al/stash/internal/memory"
 	"github.com/alash3al/stash/internal/reasoner"
 	"github.com/alash3al/stash/internal/store"
-	"github.com/alash3al/stash/internal/store/mapdb"
 	"github.com/alash3al/stash/internal/store/postgres"
 )
 
@@ -129,67 +128,41 @@ func loadConfig() (*config.Config, error) {
 }
 
 func buildStore(ctx context.Context, cfg *config.Config) (store.Store, error) {
-	switch cfg.StoreDriver {
-	case "postgres":
-		pgCfg := postgres.Config{
-			DSN:             cfg.StoreDSN,
-			VectorDim:       cfg.VectorDim,
-			IndexedMetadata: []string{}, // TODO: make configurable
-			MaxResultSize:   cfg.MaxResultSize,
-		}
-		return postgres.New(pgCfg)
-	case "mapdb":
-		mapCfg := mapdb.Config{
-			VectorDim:     cfg.VectorDim,
-			MaxResultSize: cfg.MaxResultSize,
-		}
-		return mapdb.New(mapCfg)
-	default:
-		return nil, fmt.Errorf("unknown store driver: %q", cfg.StoreDriver)
+	if cfg.StoreDriver != "postgres" {
+		return nil, fmt.Errorf("only postgres store is supported, got: %q", cfg.StoreDriver)
 	}
+
+	pgCfg := postgres.Config{
+		DSN:             cfg.StoreDSN,
+		VectorDim:       cfg.VectorDim,
+		IndexedMetadata: []string{}, // TODO: make configurable
+		MaxResultSize:   cfg.MaxResultSize,
+	}
+	return postgres.New(pgCfg)
 }
 
 func buildEmbedder(cfg *config.Config) (embedder.Embedder, error) {
-	switch cfg.EmbedderDriver {
-	case "openai":
-		return embedder.NewOpenAI(
-			cfg.OpenAIBaseURL,
-			cfg.OpenAIAPIKey,
-			cfg.EmbeddingModel,
-			cfg.VectorDim,
-		)
-	case "fake":
-		if cfg.VectorDim != 8 {
-			return nil, fmt.Errorf("fake embedder only supports 8 dimensions, config expects %d", cfg.VectorDim)
-		}
-		return embedder.NewFake(), nil
-	default:
-		return nil, fmt.Errorf("unknown embedder driver: %q", cfg.EmbedderDriver)
+	if cfg.EmbedderDriver != "openai" {
+		return nil, fmt.Errorf("only openai embedder is supported, got: %q", cfg.EmbedderDriver)
 	}
+
+	return embedder.NewOpenAI(
+		cfg.OpenAIBaseURL,
+		cfg.OpenAIAPIKey,
+		cfg.EmbeddingModel,
+		cfg.VectorDim,
+	)
 }
 
 func buildReasoner(cfg *config.Config) (reasoner.Reasoner, error) {
-	// Reasoner is optional — if neither driver nor model is set, use Fake
-	if cfg.ReasonerDriver == "" && cfg.ReasonerModel == "" {
-		return reasoner.NewFake("fake", "fake"), nil
+	if cfg.ReasonerDriver != "openai" {
+		return nil, fmt.Errorf("only openai reasoner is supported, got: %q", cfg.ReasonerDriver)
 	}
 
-	// Both must be set if either is set
-	if cfg.ReasonerDriver == "" || cfg.ReasonerModel == "" {
-		return nil, fmt.Errorf("reasoner: STASH_REASONER_DRIVER and STASH_REASONER_MODEL must both be set")
-	}
-
-	switch cfg.ReasonerDriver {
-	case "openai":
-		return reasoner.NewOpenAI(
-			cfg.OpenAIBaseURL,
-			cfg.OpenAIAPIKey,
-			cfg.ReasonerDriver,
-			cfg.ReasonerModel,
-		)
-	case "fake":
-		return reasoner.NewFake(cfg.ReasonerDriver, cfg.ReasonerModel), nil
-	default:
-		return nil, fmt.Errorf("unknown reasoner driver: %q", cfg.ReasonerDriver)
-	}
+	return reasoner.NewOpenAI(
+		cfg.OpenAIBaseURL,
+		cfg.OpenAIAPIKey,
+		cfg.ReasonerDriver,
+		cfg.ReasonerModel,
+	)
 }

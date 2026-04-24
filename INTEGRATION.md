@@ -18,13 +18,11 @@ Stash is ready for agent integration via HTTP API.
 - ✅ Environment variable configuration
 - ✅ Multi-platform builds (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64)
 
-### Storage Options
-- ✅ PostgreSQL (production, with pgvector for embeddings)
-- ✅ In-memory (development/testing)
+### Storage
+- ✅ PostgreSQL with pgvector (production-ready)
 
 ### AI Backends
 - ✅ OpenAI (embeddings + reasoning)
-- ✅ Fake (testing without API keys)
 
 ### Documentation
 - ✅ API reference with examples (`API-SERVER.md`)
@@ -41,12 +39,11 @@ Stash is ready for agent integration via HTTP API.
 
 ### 1. Start the Server
 
-**Option A: Local (in-memory)**
-```bash
-stash server --port 8080
-```
+**Prerequisites:**
+- PostgreSQL database with pgvector extension
+- OpenAI API key
 
-**Option B: Docker with PostgreSQL**
+**Start the server:**
 ```bash
 docker-compose up -d postgres
 docker run -p 8080:8080 \
@@ -143,18 +140,29 @@ Schedule these CLI commands via cron or systemd timers:
 Set via environment variables:
 
 ```bash
-# Storage
-STASH_STORE_TYPE=postgres  # or 'memory'
-STASH_POSTGRES_URL=postgres://user:pass@host/db
+# Storage (required)
+STASH_STORE_DRIVER=postgres
+STASH_STORE_DSN=postgres://user:pass@host/db
+STASH_VECTOR_DIM=1536
+STASH_MAX_RESULT_SIZE=10000
 
-# Embeddings
-STASH_EMBEDDER_TYPE=openai  # or 'fake'
+# Embeddings (required)
+STASH_EMBEDDER_DRIVER=openai
 STASH_OPENAI_API_KEY=sk-...
-STASH_OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+STASH_OPENAI_BASE_URL=https://api.openai.com/v1
+STASH_EMBEDDING_MODEL=text-embedding-3-small
 
-# Reasoning (for CLI consolidation)
-STASH_REASONER_TYPE=openai  # or 'fake'
-STASH_OPENAI_MODEL=gpt-4o-mini
+# Reasoning (required)
+STASH_REASONER_DRIVER=openai
+STASH_REASONER_MODEL=gpt-4o-mini
+
+# Memory
+STASH_CONTEXT_TTL=1h
+
+# Server
+STASH_HTTP_ADDR=:8080
+STASH_LOG_LEVEL=info
+STASH_LOG_FORMAT=json
 ```
 
 ## 🎯 Agent Integration Patterns
@@ -218,11 +226,8 @@ Always use `ranked=true` for user-facing facts:
 # Check logs
 stash server 2>&1 | tee server.log
 
-# Test with minimal config (in-memory)
-STASH_STORE_TYPE=memory \
-STASH_EMBEDDER_TYPE=fake \
-STASH_REASONER_TYPE=fake \
-stash server
+# Verify all required environment variables are set
+stash env
 ```
 
 ### No results from recall
@@ -232,8 +237,8 @@ stash server
 - Check namespace matches
 
 ### Slow responses
-- First embedding call is slow (~500ms), subsequent calls are cached
-- Use PostgreSQL instead of in-memory for production
+- First embedding call is slow (~500ms), subsequent calls may be cached by OpenAI
+- Ensure PostgreSQL has proper indexes (automatically created on schema init)
 - Consider connection pooling if high concurrency
 
 ## 🎉 You're Ready!
