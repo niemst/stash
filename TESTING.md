@@ -38,15 +38,12 @@ docker-compose up -d postgres
 
 2. **Set environment variables:**
 ```bash
-export STASH_STORE_DRIVER=postgres
-export STASH_STORE_DSN=postgres://stash:stash_dev_password@localhost:5432/stash?sslmode=disable
+export STASH_POSTGRES_DSN=postgres://stash:stash_dev_password@localhost:5432/stash?sslmode=disable
 export STASH_VECTOR_DIM=1536
 export STASH_MAX_RESULT_SIZE=10000
-export STASH_EMBEDDER_DRIVER=openai
 export STASH_OPENAI_API_KEY=sk-...
 export STASH_OPENAI_BASE_URL=https://api.openai.com/v1
 export STASH_EMBEDDING_MODEL=text-embedding-3-small
-export STASH_REASONER_DRIVER=openai
 export STASH_REASONER_MODEL=gpt-4o-mini
 export STASH_CONTEXT_TTL=1h
 export STASH_HTTP_ADDR=:8080

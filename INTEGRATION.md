@@ -140,26 +140,21 @@ Schedule these CLI commands via cron or systemd timers:
 Set via environment variables:
 
 ```bash
-# Storage (required)
-STASH_STORE_DRIVER=postgres
-STASH_STORE_DSN=postgres://user:pass@host/db
+# PostgreSQL (required)
+STASH_POSTGRES_DSN=postgres://user:pass@host/db
 STASH_VECTOR_DIM=1536
 STASH_MAX_RESULT_SIZE=10000
 
-# Embeddings (required)
-STASH_EMBEDDER_DRIVER=openai
+# OpenAI API (required)
 STASH_OPENAI_API_KEY=sk-...
 STASH_OPENAI_BASE_URL=https://api.openai.com/v1
 STASH_EMBEDDING_MODEL=text-embedding-3-small
-
-# Reasoning (required)
-STASH_REASONER_DRIVER=openai
 STASH_REASONER_MODEL=gpt-4o-mini
 
-# Memory
+# Memory (required)
 STASH_CONTEXT_TTL=1h
 
-# Server
+# Server (required)
 STASH_HTTP_ADDR=:8080
 STASH_LOG_LEVEL=info
 STASH_LOG_FORMAT=json

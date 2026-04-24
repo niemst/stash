@@ -104,20 +104,15 @@ These operations are intentionally CLI-only because:
 The server requires these environment variables:
 
 ```bash
-# Storage (PostgreSQL required)
-STASH_STORE_DRIVER=postgres
-STASH_STORE_DSN=postgres://user:pass@localhost/stash
+# PostgreSQL
+STASH_POSTGRES_DSN=postgres://user:pass@localhost/stash
 STASH_VECTOR_DIM=1536
 STASH_MAX_RESULT_SIZE=10000
 
-# Embeddings (OpenAI required)
-STASH_EMBEDDER_DRIVER=openai
+# OpenAI API (or compatible endpoint)
 STASH_OPENAI_API_KEY=sk-...
 STASH_OPENAI_BASE_URL=https://api.openai.com/v1
 STASH_EMBEDDING_MODEL=text-embedding-3-small
-
-# Reasoning (OpenAI required)
-STASH_REASONER_DRIVER=openai
 STASH_REASONER_MODEL=gpt-4o-mini
 
 # Memory
@@ -140,15 +135,12 @@ docker-compose up -d postgres
 # Run stash server
 docker run -p 8080:8080 \
   --network stash-network \
-  -e STASH_STORE_DRIVER=postgres \
-  -e STASH_STORE_DSN=postgres://stash:stash_dev_password@postgres/stash \
+  -e STASH_POSTGRES_DSN=postgres://stash:stash_dev_password@postgres/stash \
   -e STASH_VECTOR_DIM=1536 \
   -e STASH_MAX_RESULT_SIZE=10000 \
-  -e STASH_EMBEDDER_DRIVER=openai \
   -e STASH_OPENAI_API_KEY=sk-... \
   -e STASH_OPENAI_BASE_URL=https://api.openai.com/v1 \
   -e STASH_EMBEDDING_MODEL=text-embedding-3-small \
-  -e STASH_REASONER_DRIVER=openai \
   -e STASH_REASONER_MODEL=gpt-4o-mini \
   -e STASH_CONTEXT_TTL=1h \
   -e STASH_HTTP_ADDR=:8080 \

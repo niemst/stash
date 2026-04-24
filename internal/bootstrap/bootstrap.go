@@ -128,10 +128,6 @@ func loadConfig() (*config.Config, error) {
 }
 
 func buildStore(ctx context.Context, cfg *config.Config) (store.Store, error) {
-	if cfg.StoreDriver != "postgres" {
-		return nil, fmt.Errorf("only postgres store is supported, got: %q", cfg.StoreDriver)
-	}
-
 	pgCfg := postgres.Config{
 		DSN:             cfg.StoreDSN,
 		VectorDim:       cfg.VectorDim,
@@ -142,10 +138,6 @@ func buildStore(ctx context.Context, cfg *config.Config) (store.Store, error) {
 }
 
 func buildEmbedder(cfg *config.Config) (embedder.Embedder, error) {
-	if cfg.EmbedderDriver != "openai" {
-		return nil, fmt.Errorf("only openai embedder is supported, got: %q", cfg.EmbedderDriver)
-	}
-
 	return embedder.NewOpenAI(
 		cfg.OpenAIBaseURL,
 		cfg.OpenAIAPIKey,
@@ -155,14 +147,10 @@ func buildEmbedder(cfg *config.Config) (embedder.Embedder, error) {
 }
 
 func buildReasoner(cfg *config.Config) (reasoner.Reasoner, error) {
-	if cfg.ReasonerDriver != "openai" {
-		return nil, fmt.Errorf("only openai reasoner is supported, got: %q", cfg.ReasonerDriver)
-	}
-
 	return reasoner.NewOpenAI(
 		cfg.OpenAIBaseURL,
 		cfg.OpenAIAPIKey,
-		cfg.ReasonerDriver,
+		"openai", // driver name (for logging)
 		cfg.ReasonerModel,
 	)
 }

@@ -367,49 +367,38 @@ stash facts graph --entity=<entity> --namespace=<ns> --depth=2
 
 ### Required Environment Variables
 
-**All variables are required. No defaults.**
+**All variables are required. No defaults. No driver selection.**
 
-**Store (PostgreSQL only):**
-- `STASH_STORE_DRIVER=postgres` — Storage backend
-- `STASH_STORE_DSN` — PostgreSQL connection string
-- `STASH_VECTOR_DIM=1536` — Vector dimensions (matches embedding model)
-- `STASH_MAX_RESULT_SIZE=10000` — Maximum records per query
+**PostgreSQL:**
+- `STASH_POSTGRES_DSN` — Connection string (e.g., `postgres://user:pass@localhost/stash`)
+- `STASH_VECTOR_DIM` — Vector dimensions (1536 for text-embedding-3-small)
+- `STASH_MAX_RESULT_SIZE` — Maximum records per query (e.g., 10000)
 
-**Embedder (OpenAI only):**
-- `STASH_EMBEDDER_DRIVER=openai` — Embedding service
-- `STASH_OPENAI_BASE_URL=https://api.openai.com/v1` — OpenAI API endpoint
+**OpenAI API:**
 - `STASH_OPENAI_API_KEY` — API key
-- `STASH_EMBEDDING_MODEL=text-embedding-3-small` — Model name
-
-**Reasoner (OpenAI only):**
-- `STASH_REASONER_DRIVER=openai` — LLM provider
-- `STASH_REASONER_MODEL=gpt-4o-mini` — Model name
+- `STASH_OPENAI_BASE_URL` — API endpoint (e.g., `https://api.openai.com/v1`)
+- `STASH_EMBEDDING_MODEL` — Embedding model (e.g., `text-embedding-3-small`)
+- `STASH_REASONER_MODEL` — Reasoning model (e.g., `gpt-4o-mini`)
 
 **Memory:**
-- `STASH_CONTEXT_TTL=1h` — Working memory context TTL
+- `STASH_CONTEXT_TTL` — Working memory TTL (e.g., `1h`)
 
 **Server:**
-- `STASH_HTTP_ADDR=:8080` — Server listen address
-- `STASH_LOG_LEVEL=info` — Logging level: `debug`, `info`, `warn`, `error`
-- `STASH_LOG_FORMAT=json` — Log format: `json` or `text`
+- `STASH_HTTP_ADDR` — Listen address (e.g., `:8080`)
+- `STASH_LOG_LEVEL` — Logging level: `debug`, `info`, `warn`, `error`
+- `STASH_LOG_FORMAT` — Log format: `json` or `text`
 
 ### Example Configuration
 
 ```bash
-# Complete production configuration
-export STASH_STORE_DRIVER=postgres
-export STASH_STORE_DSN="postgresql://user:pass@localhost/stash"
+# Minimal production configuration
+export STASH_POSTGRES_DSN="postgres://user:pass@localhost/stash"
 export STASH_VECTOR_DIM=1536
 export STASH_MAX_RESULT_SIZE=10000
-
-export STASH_EMBEDDER_DRIVER=openai
-export STASH_OPENAI_BASE_URL=https://api.openai.com/v1
 export STASH_OPENAI_API_KEY=sk-...
+export STASH_OPENAI_BASE_URL=https://api.openai.com/v1
 export STASH_EMBEDDING_MODEL=text-embedding-3-small
-
-export STASH_REASONER_DRIVER=openai
 export STASH_REASONER_MODEL=gpt-4o-mini
-
 export STASH_CONTEXT_TTL=1h
 export STASH_HTTP_ADDR=:8080
 export STASH_LOG_LEVEL=info

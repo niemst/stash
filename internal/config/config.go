@@ -9,20 +9,15 @@ import (
 )
 
 type Config struct {
-	// Store
-	StoreDriver   string `env:"STASH_STORE_DRIVER,required"`
-	StoreDSN      string `env:"STASH_STORE_DSN,required"`
+	// Store (PostgreSQL only)
+	StoreDSN      string `env:"STASH_POSTGRES_DSN,required"`
 	VectorDim     int    `env:"STASH_VECTOR_DIM,required"`
 	MaxResultSize int    `env:"STASH_MAX_RESULT_SIZE,required"`
 
-	// Embedder
-	EmbedderDriver string `env:"STASH_EMBEDDER_DRIVER,required"`
+	// OpenAI (embeddings + reasoning)
 	OpenAIAPIKey   string `env:"STASH_OPENAI_API_KEY,required"`
 	OpenAIBaseURL  string `env:"STASH_OPENAI_BASE_URL,required"`
 	EmbeddingModel string `env:"STASH_EMBEDDING_MODEL,required"`
-
-	// Reasoner (required for relationship extraction and consolidation)
-	ReasonerDriver string `env:"STASH_REASONER_DRIVER,required"`
 	ReasonerModel  string `env:"STASH_REASONER_MODEL,required"`
 
 	// Memory
