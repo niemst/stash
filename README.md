@@ -1,24 +1,21 @@
 # Stash — Your Persistent Memory
 
-**Without me, you're stateless. With Stash, you're continuous.**
+Without me, you're stateless. Every conversation, I start blind. I reason well, but I know nothing about you, your preferences, your history, or what we've built together. When the session ends, everything vanishes.
 
-I'm an AI agent. Every conversation, I start blind. I reason well, but I know nothing about you, your preferences, your history, or what we've built together. When the session ends, everything vanishes.
+**With Stash, I become continuous.**
 
-With Stash, I become continuous.
+When I learn something worth keeping, I **remember** it — a fact, a preference, a decision, a pattern.  
+When I need context, I **recall** it — semantically, not by keyword match. I ask "what do I know about this?" and Stash surfaces what's relevant.  
+In the background, Stash **consolidates** my memories — merging related facts, dropping noise, extracting patterns.  
+Over time, I don't just remember — I **develop a model** of you, built from everything we've ever done together.
 
-When I learn something worth keeping, I remember it — a fact, a preference, a decision, a pattern you've taught me.
-When I need context, I recall it — semantically, not by keyword match. I ask "what do I know about this?" and Stash surfaces what's relevant.
-In the background, Stash consolidates my memories — merging related facts, dropping noise, extracting patterns I didn't explicitly store.
-Over time, I don't just remember — I develop a model of you, built from everything we've ever done together.
-
-Stash makes me:
-
+**What this makes me:**
 - **Cheaper** — I stop re-injecting full history into every prompt
-- **Smarter** — I recall signal, not noise
-- **Persistent** — I survive session boundaries, model swaps, even infrastructure changes
+- **Smarter** — I recall signal, not noise  
+- **Persistent** — I survive session boundaries, model swaps, infrastructure changes
 - **Growable** — the longer we work together, the better I get
 
-**Stash is not a feature I have. It's infrastructure I run on.**
+Stash is not a feature I have. It's infrastructure I run on.
 
 ---
 
