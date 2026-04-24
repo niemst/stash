@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alash3al/stash/internal/actions"
 	"github.com/alash3al/stash/internal/bootstrap"
-	"github.com/alash3al/stash/internal/store"
 	"github.com/urfave/cli/v3"
 )
 
@@ -26,17 +24,13 @@ func recallCmd(ctx context.Context, cmd *cli.Command) error {
 	namespaces := cmd.StringSlice("namespace")
 	limit := cmd.Int("limit")
 	if limit <= 0 {
-		limit = 10 // Default from action
+		limit = 10
 	}
 
 	whereStr := cmd.String("where")
-	var filter *store.Predicate
-	if whereStr != "" {
-		var err error
-		filter, err = actions.ParseFilterDSL(whereStr)
-		if err != nil {
-			return fmt.Errorf("invalid --where flag: %w", err)
-		}
+	filter, err := parseFilterDSL(whereStr)
+	if err != nil {
+		return fmt.Errorf("invalid --where flag: %w", err)
 	}
 
 	bc, ok := cmd.Root().Metadata["bootstrapCtx"].(*bootstrap.Context)
@@ -44,21 +38,21 @@ func recallCmd(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("bootstrap context not available")
 	}
 
-	output, err := actions.SearchEvents(ctx, bc, actions.SearchEventsInput{
-		Namespaces: namespaces,
-		Query:      query,
-		Limit:      limit,
-		Filter:     filter,
-	})
+	var events interface{}
+	if filter != nil {
+		events, err = bc.Memory.RecallWhere(ctx, namespaces, query, filter, limit)
+	} else {
+		events, err = bc.Memory.Recall(ctx, namespaces, query, limit)
+	}
 	if err != nil {
 		return err
 	}
 
-	jsonOutput, err := json.Marshal(output)
+	jsonOutput, err := json.Marshal(events)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
-	
+
 	fmt.Println(string(jsonOutput))
 	return nil
 }

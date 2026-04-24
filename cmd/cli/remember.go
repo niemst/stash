@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alash3al/stash/internal/actions"
 	"github.com/alash3al/stash/internal/bootstrap"
 	"github.com/urfave/cli/v3"
 )
@@ -36,20 +35,21 @@ func rememberCmd(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("bootstrap context not available")
 	}
 
-	output, err := actions.CreateEvent(ctx, bc, actions.CreateEventInput{
-		Namespace: namespace,
-		Content:   content,
-		Metadata:  metadata,
-	})
+	eventID, err := bc.Memory.Remember(ctx, namespace, content, metadata)
 	if err != nil {
 		return err
+	}
+
+	output := map[string]string{
+		"id":      eventID,
+		"message": "Event remembered successfully",
 	}
 
 	jsonOutput, err := json.Marshal(output)
 	if err != nil {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
-	
+
 	fmt.Println(string(jsonOutput))
 	return nil
 }

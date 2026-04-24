@@ -1,4 +1,4 @@
-package actions
+package main
 
 import (
 	"fmt"
@@ -8,12 +8,11 @@ import (
 	"github.com/alash3al/stash/internal/store"
 )
 
-// ParseFilterDSL parses a simple filter DSL and returns a store.Predicate.
+// parseFilterDSL parses a simple filter DSL and returns a store.Predicate.
 // Format: "field=value,field>=value,field<value"
 // Supported operators: =, !=, <, >, <=, >=
 // Multiple filters are AND-ed together.
-// Returns an error if the DSL is malformed.
-func ParseFilterDSL(dsl string) (*store.Predicate, error) {
+func parseFilterDSL(dsl string) (*store.Predicate, error) {
 	if dsl == "" {
 		return nil, nil
 	}
@@ -46,16 +45,10 @@ func ParseFilterDSL(dsl string) (*store.Predicate, error) {
 		return &predicates[0], nil
 	}
 
-	// Multiple predicates: AND them together
-	return &store.Predicate{
-		And: predicates,
-	}, nil
+	return &store.Predicate{And: predicates}, nil
 }
 
-// parseFilterExpression parses a single filter expression like "severity=high" or "level>=3".
-// Returns a Predicate or an error.
 func parseFilterExpression(expr string) (store.Predicate, error) {
-	// Try operators in order of length (longest first to avoid matching <= as < then =)
 	operators := []struct {
 		op   string
 		storeOp store.Op
@@ -95,16 +88,13 @@ func parseFilterExpression(expr string) (store.Predicate, error) {
 		return store.Predicate{}, fmt.Errorf("invalid filter expression %q: missing value", expr)
 	}
 
-	// Convert field to dotted metadata path
 	metadataField := "metadata." + field
 
-	// Try to parse value as number if the operator suggests numeric comparison
 	var finalValue any = value
 	if op == store.OpGt || op == store.OpGte || op == store.OpLt || op == store.OpLte {
 		if num, err := strconv.ParseFloat(value, 64); err == nil {
 			finalValue = num
 		}
-		// If it's not a number, keep it as string (comparison will still work)
 	}
 
 	return store.Predicate{
