@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/alash3al/stash/internal/bootstrap"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/urfave/cli/v3"
 )
 
@@ -41,14 +41,12 @@ type FactResponse struct {
 }
 
 type RecallFactsResponse struct {
-	Query     string           `json:"query"`
-	Namespace string           `json:"namespace"`
-	Ranked    bool             `json:"ranked"`
-	Limit     int              `json:"limit"`
-	Facts     []FactResponse   `json:"facts"`
+	Query     string         `json:"query"`
+	Namespace string         `json:"namespace"`
+	Ranked    bool           `json:"ranked"`
+	Limit     int            `json:"limit"`
+	Facts     []FactResponse `json:"facts"`
 }
-
-
 
 func serverCmd(ctx context.Context, cmd *cli.Command) error {
 	port := cmd.String("port")
@@ -62,7 +60,6 @@ func serverCmd(ctx context.Context, cmd *cli.Command) error {
 	e := echo.New()
 
 	// Middleware
-	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
 	// Routes - Core agent operations only
@@ -70,7 +67,7 @@ func serverCmd(ctx context.Context, cmd *cli.Command) error {
 	e.GET("/api/v1/facts", recallFactsHandler(bc))
 
 	// Health check
-	e.GET("/health", func(c echo.Context) error {
+	e.GET("/health", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
@@ -79,7 +76,7 @@ func serverCmd(ctx context.Context, cmd *cli.Command) error {
 }
 
 func addFactHandler(bc *bootstrap.Context) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		var req AddFactRequest
 		// Use c.Bind for Echo v4
 		if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
@@ -105,7 +102,7 @@ func addFactHandler(bc *bootstrap.Context) echo.HandlerFunc {
 		}
 
 		response := map[string]string{
-			"id":    eventID,
+			"id":      eventID,
 			"message": "Event remembered successfully",
 		}
 
@@ -114,7 +111,7 @@ func addFactHandler(bc *bootstrap.Context) echo.HandlerFunc {
 }
 
 func recallFactsHandler(bc *bootstrap.Context) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		query := c.QueryParam("query")
 		if strings.TrimSpace(query) == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "query is required"})
@@ -191,5 +188,3 @@ func recallFactsHandler(bc *bootstrap.Context) echo.HandlerFunc {
 		return c.JSON(http.StatusOK, response)
 	}
 }
-
-
