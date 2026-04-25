@@ -1,6 +1,6 @@
 # Binaries
-stash
-cli
+/stash
+/cli
 stash-*
 
 # Environment files
