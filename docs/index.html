@@ -764,13 +764,253 @@
             50% { box-shadow: 0 0 0 8px rgba(232,160,32,0.1); }
         }
 
+        /* STORY */
+        #story {
+            padding: 120px 0 0;
+            border-top: 1px solid var(--border);
+        }
+        #beforeafter { padding: 60px 0 120px; }
+
+        .story-layout {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 24px;
+            align-items: start;
+            margin-top: 48px;
+        }
+        .story-side { display: flex; flex-direction: column; gap: 12px; }
+        .story-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            padding: 10px 16px;
+        }
+        .without .story-label { color: #904040; border: 1px solid #904040; }
+        .with .story-label { color: var(--green); border: 1px solid var(--green); }
+
+        .story-messages { display: flex; flex-direction: column; gap: 8px; }
+        .msg {
+            padding: 12px 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            border-radius: 2px;
+            max-width: 90%;
+        }
+        .msg-user {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            align-self: flex-end;
+            text-align: right;
+        }
+        .msg-ai {
+            background: rgba(232,160,32,0.05);
+            border: 1px solid var(--amber-dim);
+            color: var(--text);
+            align-self: flex-start;
+        }
+        .msg-system {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            padding: 10px 14px;
+            align-self: center;
+            width: 100%;
+            text-align: center;
+        }
+        .without .msg-system { color: #904040; border: 1px dashed #904040; background: rgba(144,64,64,0.05); }
+        .with .msg-system { color: var(--green); border: 1px dashed var(--green); background: rgba(74,144,96,0.05); }
+
+        .story-divider {
+            font-family: 'Fraunces', serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            padding-top: 48px;
+        }
+
+        /* BEFORE AFTER TABLE */
+        .ba-table {
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .ba-header, .ba-row {
+            display: grid;
+            grid-template-columns: 200px 1fr 1fr;
+        }
+        .ba-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .ba-row { border-bottom: 1px solid var(--border); }
+        .ba-row:last-child { border-bottom: none; }
+        .ba-row:hover { background: rgba(232,160,32,0.03); }
+        .ba-col-label, .ba-col {
+            padding: 16px 24px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .ba-col-label {
+            color: var(--text-dim);
+            border-right: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .ba-header .ba-col-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+        .ba-col { border-right: 1px solid var(--border); }
+        .ba-col:last-child { border-right: none; }
+        .ba-col.bad { color: #7a5050; }
+        .ba-col.good { color: var(--green); }
+        .ba-header .ba-col.bad {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            color: #904040;
+        }
+        .ba-header .ba-col.good {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            color: var(--green);
+        }
+
+        /* UNIQUE */
+        #unique { padding: 120px 0; border-top: 1px solid var(--border); }
+
+        .unique-hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            margin-bottom: 80px;
+        }
+        .unique-headline {
+            font-family: 'Fraunces', serif;
+            font-size: clamp(40px, 5vw, 68px);
+            font-weight: 700;
+            line-height: 1.0;
+            letter-spacing: -0.02em;
+        }
+        .unique-headline em {
+            font-style: italic;
+            font-weight: 300;
+            color: var(--amber);
+        }
+        .unique-sub {
+            font-size: 17px;
+            color: var(--text-dim);
+            line-height: 1.8;
+        }
+
+        /* Compare table */
+        .compare-table { border: 1px solid var(--border); overflow: hidden; }
+        .compare-header, .compare-row {
+            display: grid;
+            grid-template-columns: 260px 1fr 1fr 1fr;
+        }
+        .compare-header {
+            background: var(--surface);
+            border-bottom: 2px solid var(--border);
+        }
+        .compare-row {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        .compare-row:last-child { border-bottom: none; }
+        .compare-row:hover { background: rgba(255,255,255,0.02); }
+        .compare-feature, .compare-col {
+            padding: 14px 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            border-right: 1px solid var(--border);
+        }
+        .compare-col:last-child { border-right: none; }
+        .compare-feature { color: var(--text-dim); font-size: 13px; }
+        .compare-col.competitor { color: var(--text-muted); justify-content: center; }
+        .compare-col.stash-col {
+            background: rgba(232,160,32,0.04);
+            justify-content: center;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .compare-header .compare-feature {}
+        .compare-header .compare-col {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+        .compare-header .stash-col {
+            color: var(--amber);
+            background: rgba(232,160,32,0.06);
+            border-top: 2px solid var(--amber);
+        }
+        .c-yes { color: var(--green); font-size: 16px; }
+        .c-no { color: var(--text-muted); font-size: 16px; }
+        .highlight-row { background: rgba(232,160,32,0.03); }
+        .highlight-row .compare-feature { color: var(--text); font-weight: 500; }
+        .highlight-row .compare-col.competitor { color: var(--text-muted); font-style: italic; }
+        .highlight-row .stash-col { color: var(--amber); font-family: 'Fraunces', serif; font-size: 16px; font-style: italic; }
+
+        .backends-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            background: rgba(232,160,32,0.06);
+            border: 1px solid var(--amber-dim);
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .backends-note strong { color: var(--amber); }
+        .note-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+
+        .dim-warning {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            background: rgba(144,64,64,0.06);
+            border: 1px solid #5a3030;
+            padding: 20px 24px;
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+        .dim-warning strong { color: #c08080; }
+        .dim-warning code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 13px;
+            color: var(--amber);
+            background: rgba(232,160,32,0.08);
+            padding: 1px 6px;
+        }
+        .dim-warning-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+
         /* Mobile */
+
+
+
         @media (max-width: 768px) {
             nav { padding: 20px 24px; }
             .nav-links { display: none; }
             #hero { padding: 120px 24px 80px; }
             .container { padding: 0 24px; }
-            .problem-grid,
+            .unique-hero { grid-template-columns: 1fr; gap: 32px; }
+            .compare-header, .compare-row { grid-template-columns: 1fr 1fr 1fr; }
+            .compare-feature { display: none; }
+
+            .story-divider { justify-content: center; padding-top: 0; }
+            .ba-header, .ba-row { grid-template-columns: 1fr 1fr; }
+            .ba-col-label { display: none; }
+            .ba-col { border-right: none; border-bottom: none; }
+
             .what-layout,
             .mcp-layout,
             .loop-layout { grid-template-columns: 1fr; gap: 40px; }
@@ -810,7 +1050,7 @@
         Your AI<br>
         has <em>amnesia.</em>
     </h1>
-    <p class="hero-sub">Every conversation starts from zero. Stash gives any AI agent a persistent memory, a knowledge graph, goals, and a self-model.</p>
+    <p class="hero-sub">Stash makes your AI remember you. Every session. Forever. No more explaining yourself from scratch.</p>
     <div class="hero-actions">
         <a href="https://github.com/alash3al/stash" class="btn-primary">→ View on GitHub</a>
         <a href="#what" class="btn-secondary">How it works</a>
@@ -831,7 +1071,169 @@
     </div>
 </section>
 
+<!-- STORY -->
+<section id="story">
+    <div class="container">
+        <div class="section-tag reveal">Sound familiar?</div>
+        <div class="story-layout reveal">
+            <div class="story-side without">
+                <div class="story-label">😫 Without Stash</div>
+                <div class="story-messages">
+                    <div class="msg msg-user">Hey, I'm building a SaaS for restaurants. Can you help?</div>
+                    <div class="msg msg-ai">Of course! Tell me about your project.</div>
+                    <div class="msg msg-user">We talked about this last week... I already explained everything.</div>
+                    <div class="msg msg-ai">I'm sorry, I don't have access to previous conversations.</div>
+                    <div class="msg msg-user">...again?</div>
+                    <div class="msg msg-system">🔁 You just wasted 10 minutes re-explaining yourself. Again.</div>
+                </div>
+            </div>
+            <div class="story-divider">VS</div>
+            <div class="story-side with">
+                <div class="story-label">😌 With Stash</div>
+                <div class="story-messages">
+                    <div class="msg msg-user">Hey, continuing work on my project.</div>
+                    <div class="msg msg-ai">Welcome back! Last time we finalized the pricing model for your restaurant SaaS. You were about to work on the onboarding flow. Want to pick up there?</div>
+                    <div class="msg msg-user">Yes! Exactly that.</div>
+                    <div class="msg msg-ai">Great. You also mentioned you wanted to avoid Stripe's complexity — I have that noted. Here's where we left off...</div>
+                    <div class="msg msg-system">✓ Picked up instantly. Zero repetition. Full context.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- BEFORE AFTER TABLE -->
+<section id="beforeafter">
+    <div class="container">
+        <div class="ba-table reveal">
+            <div class="ba-header">
+                <div class="ba-col-label"></div>
+                <div class="ba-col bad">Without Stash</div>
+                <div class="ba-col good">With Stash</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">New session</div>
+                <div class="ba-col bad">❌ "Who are you again?"</div>
+                <div class="ba-col good">✓ Picks up where you left off</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">Your preferences</div>
+                <div class="ba-col bad">❌ Re-explain every time</div>
+                <div class="ba-col good">✓ Already knows them</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">Past mistakes</div>
+                <div class="ba-col bad">❌ Repeats the same errors</div>
+                <div class="ba-col good">✓ Remembers what didn't work</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">Long projects</div>
+                <div class="ba-col bad">❌ Loses track of goals</div>
+                <div class="ba-col good">✓ Tracks goals across weeks</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">Token cost</div>
+                <div class="ba-col bad">❌ Grows every session</div>
+                <div class="ba-col good">✓ Only recalls what matters</div>
+            </div>
+            <div class="ba-row">
+                <div class="ba-col-label">Switching models</div>
+                <div class="ba-col bad">❌ Start from zero again</div>
+                <div class="ba-col good">✓ Memory is model-agnostic</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- UNIQUE -->
+<section id="unique">
+    <div class="container">
+        <div class="section-tag reveal">Why Stash is Different</div>
+        <div class="unique-hero reveal">
+            <h2 class="unique-headline">Everyone gave AI<br>a <em>notepad.</em><br>We gave it a <em>mind.</em></h2>
+            <p class="unique-sub">Claude.ai has memory. ChatGPT has memory. They only work for themselves — locked to one platform, one model, one company. Stash works for everyone, everywhere, forever. And it goes far deeper than any of them.</p>
+        </div>
+
+        <div class="compare-table reveal">
+            <div class="compare-header">
+                <div class="compare-feature"></div>
+                <div class="compare-col competitor">ChatGPT Memory</div>
+                <div class="compare-col competitor">Claude.ai Memory</div>
+                <div class="compare-col stash-col">Stash</div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Remembers you</div>
+                <div class="compare-col competitor"><span class="c-yes">✓</span></div>
+                <div class="compare-col competitor"><span class="c-yes">✓</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Works with any AI model</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Works with local / private models</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">You own your data</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Open source</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Background consolidation</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Goals &amp; intent tracking</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Learns from failures</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Causal reasoning</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row">
+                <div class="compare-feature">Agent self-model</div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col competitor"><span class="c-no">✗</span></div>
+                <div class="compare-col stash-col"><span class="c-yes">✓</span></div>
+            </div>
+            <div class="compare-row highlight-row">
+                <div class="compare-feature">What it gives your AI</div>
+                <div class="compare-col competitor">A notepad</div>
+                <div class="compare-col competitor">A notepad</div>
+                <div class="compare-col stash-col">A mind</div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- PROBLEM -->
+
+
 <section id="problem">
     <div class="container">
         <div class="section-tag">The Problem</div>
@@ -1127,48 +1529,72 @@
         <div class="pipeline-header reveal">
             <div class="section-tag" style="justify-content:center">Model Agnostic</div>
             <h2 class="section-headline">Your model. <em>Your infrastructure.</em></h2>
-            <p class="section-sub">Stash works with any OpenAI-compatible backend — cloud, local, or self-hosted. No vendor lock-in, ever.</p>
+            <p class="section-sub">Stash uses one provider for both embedding and reasoning — any OpenAI-compatible backend works. Cloud, local, or self-hosted. No vendor lock-in, ever.</p>
         </div>
+
+        <div class="backends-note reveal">
+            <span class="note-icon">⚡</span>
+            <div>
+                <strong>Stash itself runs on OpenRouter.</strong> The author runs Stash locally pointed at OpenRouter — access to hundreds of models, one API key, zero infrastructure.
+            </div>
+        </div>
+
         <div class="problem-grid reveal" style="grid-template-columns: repeat(3, 1fr);">
-            <div class="problem-card" style="--top-color: var(--amber)">
+            <div class="problem-card">
                 <span class="problem-icon">☁️</span>
                 <h3 class="problem-title">Cloud APIs</h3>
-                <p class="problem-desc">OpenRouter gives you access to hundreds of models — GPT, Claude, Gemini, Mistral — all behind one OpenAI-compatible endpoint. Point Stash at it and pick your model.</p>
+                <p class="problem-desc">OpenRouter gives you access to hundreds of models — GPT, Claude, Gemini, Mistral — all behind one OpenAI-compatible endpoint. Point Stash at it and pick any model for embedding and reasoning.</p>
             </div>
-            <div class="problem-card" style="--top-color: var(--amber)">
+            <div class="problem-card">
                 <span class="problem-icon">🏠</span>
                 <h3 class="problem-title">Local Models</h3>
                 <p class="problem-desc">Running Ollama locally? Stash works out of the box. Use Qwen, Llama, Mistral, or any model you've pulled — your memory stays fully private, fully offline.</p>
             </div>
-            <div class="problem-card" style="--top-color: var(--amber)">
+            <div class="problem-card">
                 <span class="problem-icon">🔧</span>
                 <h3 class="problem-title">Self-Hosted</h3>
-                <p class="problem-desc">vLLM, LM Studio, llama.cpp server, Together AI, Groq — if it speaks the OpenAI API format, Stash speaks it back. Two env vars is all it takes.</p>
+                <p class="problem-desc">vLLM, LM Studio, llama.cpp server, Together AI, Groq — if it speaks the OpenAI API format, Stash speaks it back. Same provider serves both models.</p>
             </div>
         </div>
-        <div class="terminal reveal" style="margin-top: 2px; max-width: 700px; margin-left: auto; margin-right: auto;">
+
+        <div class="dim-warning reveal">
+            <span class="dim-warning-icon">⚠️</span>
+            <div>
+                <strong>Set <code>STASH_VECTOR_DIM</code> before your first run and never change it.</strong> pgvector locks the embedding dimension at initialization — changing it later requires a full database reset. The default embedding model is <code>openai/text-embedding-3-small</code> with <code>STASH_VECTOR_DIM=1536</code>.
+            </div>
+        </div>
+
+        <div class="terminal reveal" style="margin-top: 24px; max-width: 780px; margin-left: auto; margin-right: auto;">
             <div class="terminal-bar">
                 <div class="terminal-dot r"></div>
                 <div class="terminal-dot y"></div>
                 <div class="terminal-dot g"></div>
-                <span class="terminal-title">.env</span>
+                <span class="terminal-title">.env — same provider for embedding + reasoning</span>
             </div>
             <div class="terminal-body">
-                <div><span class="t-comment"># OpenRouter</span></div>
+                <div><span class="t-comment"># ⚡ OpenRouter (recommended — what the author uses locally)</span></div>
                 <div><span class="t-prompt">STASH_OPENAI_BASE_URL</span>=<span class="t-output">https://openrouter.ai/api/v1</span></div>
+                <div><span class="t-prompt">STASH_OPENAI_API_KEY</span>=<span class="t-output">sk-or-...</span></div>
+                <div><span class="t-prompt">STASH_EMBEDDING_MODEL</span>=<span class="t-output">openai/text-embedding-3-small</span></div>
                 <div><span class="t-prompt">STASH_REASONER_MODEL</span>=<span class="t-output">anthropic/claude-3-haiku</span></div>
+                <div><span class="t-prompt">STASH_VECTOR_DIM</span>=<span class="t-output">1536</span> &nbsp;<span class="t-comment"># ⚠ set once, never change</span></div>
                 <div>&nbsp;</div>
-                <div><span class="t-comment"># Ollama (local)</span></div>
+                <div><span class="t-comment"># 🏠 Ollama (fully local, fully private)</span></div>
                 <div><span class="t-prompt">STASH_OPENAI_BASE_URL</span>=<span class="t-output">http://localhost:11434/v1</span></div>
+                <div><span class="t-prompt">STASH_EMBEDDING_MODEL</span>=<span class="t-output">nomic-embed-text</span></div>
                 <div><span class="t-prompt">STASH_REASONER_MODEL</span>=<span class="t-output">qwen2.5:3b</span></div>
+                <div><span class="t-prompt">STASH_VECTOR_DIM</span>=<span class="t-output">768</span> &nbsp;<span class="t-comment"># ⚠ match your embedding model</span></div>
                 <div>&nbsp;</div>
-                <div><span class="t-comment"># Groq</span></div>
+                <div><span class="t-comment"># ⚡ Groq (fast inference)</span></div>
                 <div><span class="t-prompt">STASH_OPENAI_BASE_URL</span>=<span class="t-output">https://api.groq.com/openai/v1</span></div>
+                <div><span class="t-prompt">STASH_EMBEDDING_MODEL</span>=<span class="t-output">openai/text-embedding-3-small</span></div>
                 <div><span class="t-prompt">STASH_REASONER_MODEL</span>=<span class="t-output">llama-3.1-8b-instant</span></div>
+                <div><span class="t-prompt">STASH_VECTOR_DIM</span>=<span class="t-output">1536</span> &nbsp;<span class="t-comment"># ⚠ set once, never change</span></div>
             </div>
         </div>
     </div>
 </section>
+
 
 
 <section id="cta">
