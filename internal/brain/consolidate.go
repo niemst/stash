@@ -36,7 +36,7 @@ type ConsolidationResult struct {
 	Errors                     []string      `json:"errors,omitempty"`
 }
 
-// Consolidate runs the full 3-stage consolidation pipeline for a namespace.
+// Consolidate runs the full 8-stage consolidation pipeline for a namespace.
 func (b *Brain) Consolidate(ctx context.Context, namespaceSlug string) (ConsolidationResult, error) {
 	if err := validatePath(namespaceSlug); err != nil {
 		return ConsolidationResult{}, err
@@ -48,10 +48,16 @@ func (b *Brain) Consolidate(ctx context.Context, namespaceSlug string) (Consolid
 	return b.ConsolidateByID(ctx, nsID)
 }
 
-// ConsolidateByID runs the full 3-stage consolidation pipeline for a namespace by ID.
-// 1. Episodes -> Facts (cluster + synthesize)
-// 2. Facts -> Relationships (extract entity edges)
-// 3. Facts + Relationships -> Patterns (extract abstractions)
+// ConsolidateByID runs the full 8-stage consolidation pipeline for a namespace by ID.
+// Stages run in execution order:
+// 1. Episodes -> Facts                    (cluster + synthesize, with inline contradiction detection)
+// 2. Facts -> Relationships               (extract entity edges)
+// 3. Facts -> Causal Links                (cause/effect relationships)
+// 4. Goal Progress Inference              (annotate goals from new facts)
+// 5. Failure Pattern Detection            (recurring failures across episodes)
+// 6. Facts + Relationships -> Patterns    (extract abstractions)
+// 7. Hypothesis Evidence Scanning         (auto-confirm/reject pending hypotheses)
+// 8. Confidence Decay                     (pure-SQL, no LLM)
 func (b *Brain) ConsolidateByID(ctx context.Context, nsID int64) (ConsolidationResult, error) {
 	start := time.Now()
 
