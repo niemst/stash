@@ -54,6 +54,32 @@ type StructuredCausalLink struct {
 	Confidence   float32
 }
 
+// GoalProgressAssessment is the LLM output for one goal against a batch of facts.
+type GoalProgressAssessment struct {
+	GoalID     int64
+	Assessment string  // "progress", "suggested_complete", "contradicted", "irrelevant"
+	Note       string
+	Confidence float32
+}
+
+// FailurePatternResult covers repetition detection and pattern extraction.
+type FailurePatternResult struct {
+	Type        string  // "repetition" or "pattern"
+	FailureID   int64   // For repetition: the original failure ID
+	Evidence    string  // For repetition: what evidence suggests the repeat
+	PatternFact string  // For pattern: the extracted higher-order fact content
+	Confidence  float32
+}
+
+// HypothesisEvidenceResult is the LLM output for one hypothesis against a batch of facts.
+type HypothesisEvidenceResult struct {
+	HypothesisID  int64
+	Verdict       string  // "supports", "weakens", "contradicts", "irrelevant"
+	Confidence    float32
+	Reasoning     string
+	NewConfidence float32
+}
+
 // Reasoner synthesizes structured reasoning over text input.
 type Reasoner interface {
 	// ReasonStructured takes a list of text inputs and returns a structured fact.
@@ -70,4 +96,13 @@ type Reasoner interface {
 
 	// ReasonCausalLinks takes a batch of facts and extracts cause-effect pairs.
 	ReasonCausalLinks(ctx context.Context, facts []models.Fact) ([]*StructuredCausalLink, error)
+
+	// ReasonGoalProgress assesses whether recent facts indicate progress, completion, or contradiction of active goals.
+	ReasonGoalProgress(ctx context.Context, goals []models.Goal, facts []models.Fact) ([]*GoalProgressAssessment, error)
+
+	// ReasonFailurePatterns detects whether recent evidence repeats past failures, and extracts higher-order failure patterns.
+	ReasonFailurePatterns(ctx context.Context, failures []models.Failure, evidence []string) ([]*FailurePatternResult, error)
+
+	// ReasonHypothesisEvidence assesses whether new evidence supports, weakens, or contradicts open hypotheses.
+	ReasonHypothesisEvidence(ctx context.Context, hypotheses []models.Hypothesis, facts []models.Fact) ([]*HypothesisEvidenceResult, error)
 }

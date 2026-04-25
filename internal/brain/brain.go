@@ -56,18 +56,22 @@ type Config struct {
 	SimilarityThreshold float64
 	DedupThreshold      float64
 	Window              time.Duration
-	DecayFactor         float64
-	ExpiryThreshold     float32
+	DecayFactor                    float64
+	ExpiryThreshold                float32
+	HypothesisAutoConfirmThreshold float32
+	HypothesisAutoRejectThreshold  float32
 }
 
 func DefaultConfig() Config {
 	return Config{
-		BatchSize:           100,
-		SimilarityThreshold: 0.85,
-		DedupThreshold:      0.95,
-		Window:              7 * 24 * time.Hour,
-		DecayFactor:         0.95,
-		ExpiryThreshold:     0.1,
+		BatchSize:                      100,
+		SimilarityThreshold:            0.85,
+		DedupThreshold:                 0.95,
+		Window:                         7 * 24 * time.Hour,
+		DecayFactor:                    0.95,
+		ExpiryThreshold:                0.1,
+		HypothesisAutoConfirmThreshold: 0.9,
+		HypothesisAutoRejectThreshold:  0.9,
 	}
 }
 

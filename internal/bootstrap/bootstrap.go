@@ -76,12 +76,14 @@ func New(ctx context.Context) (*Context, error) {
 	}
 
 	br, err := brain.New(pool, cachedEmb, reas, q, brain.Config{
-		BatchSize:           cfg.ConsolidationBatchSize,
-		SimilarityThreshold: cfg.ConsolidationSimilarityThreshold,
-		DedupThreshold:      cfg.ConsolidationDedupThreshold,
-		Window:              window,
-		DecayFactor:         cfg.DecayFactor,
-		ExpiryThreshold:     cfg.ExpiryThreshold,
+		BatchSize:                      cfg.ConsolidationBatchSize,
+		SimilarityThreshold:            cfg.ConsolidationSimilarityThreshold,
+		DedupThreshold:                 cfg.ConsolidationDedupThreshold,
+		Window:                         window,
+		DecayFactor:                    cfg.DecayFactor,
+		ExpiryThreshold:                cfg.ExpiryThreshold,
+		HypothesisAutoConfirmThreshold: cfg.HypothesisAutoConfirmThreshold,
+		HypothesisAutoRejectThreshold:  cfg.HypothesisAutoRejectThreshold,
 	})
 	if err != nil {
 		pool.Close()

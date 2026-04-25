@@ -23,6 +23,13 @@ type ConsolidationResult struct {
 	PatternsFound              int           `json:"patterns_found"`
 	ContradictionsFound        int           `json:"contradictions_found"`
 	ContradictionsAutoResolved int           `json:"contradictions_auto_resolved"`
+	GoalsAnnotated             int           `json:"goals_annotated"`
+	GoalsSuggestedComplete     int           `json:"goals_suggested_complete"`
+	FailureRepeatsDetected     int           `json:"failure_repeats_detected"`
+	FailurePatternsFound       int           `json:"failure_patterns_found"`
+	HypothesesAutoConfirmed    int           `json:"hypotheses_auto_confirmed"`
+	HypothesesAutoRejected     int           `json:"hypotheses_auto_rejected"`
+	HypothesesUpdated          int           `json:"hypotheses_updated"`
 	FactsDecayed               int           `json:"facts_decayed"`
 	FactsExpired               int           `json:"facts_expired"`
 	LLMCalls                   int           `json:"llm_calls"`
@@ -86,10 +93,38 @@ func (b *Brain) ConsolidateByID(ctx context.Context, nsID int64) (ConsolidationR
 		result.Errors = append(result.Errors, errs...)
 	}
 
+	// Stage 6: Goal Progress Inference
+	if ctx.Err() == nil {
+		annotated, suggestedComplete, llmCalls, errs := b.consolidateGoalProgress(ctx, nsID, cp)
+		result.GoalsAnnotated = annotated
+		result.GoalsSuggestedComplete = suggestedComplete
+		result.LLMCalls += llmCalls
+		result.Errors = append(result.Errors, errs...)
+	}
+
+	// Stage 7: Failure Pattern Detection
+	if ctx.Err() == nil {
+		repeats, patterns, llmCalls, errs := b.consolidateFailurePatterns(ctx, nsID, cp)
+		result.FailureRepeatsDetected = repeats
+		result.FailurePatternsFound = patterns
+		result.LLMCalls += llmCalls
+		result.Errors = append(result.Errors, errs...)
+	}
+
 	// Stage 3: Facts + Relationships -> Patterns
 	if ctx.Err() == nil {
 		patCount, llmCalls, errs := b.consolidateToPatterns(ctx, nsID, cp)
 		result.PatternsFound = patCount
+		result.LLMCalls += llmCalls
+		result.Errors = append(result.Errors, errs...)
+	}
+
+	// Stage 8: Hypothesis Evidence Scanning
+	if ctx.Err() == nil {
+		autoConfirmed, autoRejected, updated, llmCalls, errs := b.consolidateHypothesisEvidence(ctx, nsID, cp)
+		result.HypothesesAutoConfirmed = autoConfirmed
+		result.HypothesesAutoRejected = autoRejected
+		result.HypothesesUpdated = updated
 		result.LLMCalls += llmCalls
 		result.Errors = append(result.Errors, errs...)
 	}

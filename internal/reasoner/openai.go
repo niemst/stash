@@ -86,6 +86,29 @@ type jsonCausalLink struct {
 	Confidence float32 `json:"confidence"`
 }
 
+type jsonGoalProgress struct {
+	GoalID     int64   `json:"goal_id"`
+	Assessment string  `json:"assessment"`
+	Note       string  `json:"note"`
+	Confidence float32 `json:"confidence"`
+}
+
+type jsonFailurePattern struct {
+	Type        string  `json:"type"`
+	FailureID   int64   `json:"failure_id"`
+	Evidence    string  `json:"evidence"`
+	PatternFact string  `json:"pattern_fact"`
+	Confidence  float32 `json:"confidence"`
+}
+
+type jsonHypothesisEvidence struct {
+	HypothesisID  int64   `json:"hypothesis_id"`
+	Verdict       string  `json:"verdict"`
+	Confidence    float32 `json:"confidence"`
+	Reasoning     string  `json:"reasoning"`
+	NewConfidence float32 `json:"new_confidence"`
+}
+
 // --- ReasonStructured ---
 
 func (o *OpenAI) ReasonStructured(ctx context.Context, texts []string) (*StructuredFact, error) {
@@ -553,6 +576,407 @@ Rules:
 		if validationFailed {
 			valErr = errors.New("causal link references non-existent fact ID")
 			msgs = append(msgs, openai.SystemMessage(retryWarning+" Fact IDs must be from the provided list only."))
+			continue
+		}
+
+		result = validated
+		valErr = nil
+		break
+	}
+
+	if valErr != nil {
+		return nil, valErr
+	}
+
+	return result, nil
+}
+
+// --- ReasonGoalProgress ---
+
+func (o *OpenAI) ReasonGoalProgress(ctx context.Context, goals []models.Goal, facts []models.Fact) ([]*GoalProgressAssessment, error) {
+	if len(goals) == 0 || len(facts) == 0 {
+		return nil, nil
+	}
+
+	var goalLines []string
+	for _, g := range goals {
+		goalLines = append(goalLines, fmt.Sprintf("[Goal %d] %s", g.ID, g.Content))
+	}
+
+	var factLines []string
+	for _, f := range facts {
+		factLines = append(factLines, fmt.Sprintf("[Fact %d] %s", f.ID, f.Content))
+	}
+
+	prompt := fmt.Sprintf(`Given these active goals and recent facts, assess whether each fact indicates progress toward, completion of, or contradiction of any goal.
+
+Active Goals:
+%s
+
+Recent Facts:
+%s
+
+Output ONLY a JSON array of objects:
+[{"goal_id": 1, "assessment": "progress|suggested_complete|contradicted|irrelevant", "note": "brief explanation", "confidence": 0.9}]
+
+Rules:
+- goal_id must be a goal ID from the list above.
+- Use "progress" if the fact indicates partial progress toward the goal.
+- Use "suggested_complete" only if the fact strongly indicates the goal is fully achieved.
+- Use "contradicted" if the fact contradicts or undermines the goal.
+- Use "irrelevant" if the fact has no bearing on the goal.
+- Only output assessments for goals where the facts are relevant. If no goals are affected, output: []
+- confidence must be between 0.5 and 1.0.`, strings.Join(goalLines, "\n"), strings.Join(factLines, "\n"))
+
+	msgs := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(systemPrompt),
+		openai.UserMessage(prompt),
+	}
+
+	goalIDs := make(map[int64]bool)
+	for _, g := range goals {
+		goalIDs[g.ID] = true
+	}
+
+	var result []*GoalProgressAssessment
+	var valErr error
+
+	for attempt := 0; attempt < 2; attempt++ {
+		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+			Model:    o.model,
+			Messages: msgs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+		}
+		if len(resp.Choices) == 0 {
+			return nil, errors.New("reasoner: no response from LLM")
+		}
+
+		output := strings.TrimSpace(resp.Choices[0].Message.Content)
+		raw := extractJSON(output)
+
+		var jassess []jsonGoalProgress
+		if err := json.Unmarshal([]byte(raw), &jassess); err != nil {
+			valErr = fmt.Errorf("parse json: %w", err)
+			msgs = append(msgs, openai.SystemMessage(retryWarning))
+			continue
+		}
+
+		var validated []*GoalProgressAssessment
+		validationFailed := false
+
+		for _, ja := range jassess {
+			if !goalIDs[ja.GoalID] {
+				validationFailed = true
+				break
+			}
+
+			assess := ja.Assessment
+			switch assess {
+			case "progress", "suggested_complete", "contradicted", "irrelevant":
+			default:
+				assess = "irrelevant"
+			}
+
+			if assess == "irrelevant" {
+				continue
+			}
+
+			conf := ja.Confidence
+			if conf < 0.5 {
+				conf = 0.5
+			}
+			if conf > 1.0 {
+				conf = 1.0
+			}
+
+			validated = append(validated, &GoalProgressAssessment{
+				GoalID:     ja.GoalID,
+				Assessment: assess,
+				Note:       ja.Note,
+				Confidence: conf,
+			})
+		}
+
+		if validationFailed {
+			valErr = errors.New("goal progress assessment references non-existent goal ID")
+			msgs = append(msgs, openai.SystemMessage(retryWarning+" Goal IDs must be from the provided list only."))
+			continue
+		}
+
+		result = validated
+		valErr = nil
+		break
+	}
+
+	if valErr != nil {
+		return nil, valErr
+	}
+
+	return result, nil
+}
+
+// --- ReasonFailurePatterns ---
+
+func (o *OpenAI) ReasonFailurePatterns(ctx context.Context, failures []models.Failure, evidence []string) ([]*FailurePatternResult, error) {
+	if len(failures) == 0 || len(evidence) == 0 {
+		return nil, nil
+	}
+
+	var failureLines []string
+	for _, f := range failures {
+		failureLines = append(failureLines, fmt.Sprintf("[Failure %d] What: %s | Why: %s | Lesson: %s", f.ID, f.Content, f.Reason, f.Lesson))
+	}
+
+	prompt := fmt.Sprintf(`Given these past failures and recent evidence, detect whether any failure is being repeated, and extract higher-order failure patterns.
+
+Past Failures:
+%s
+
+Recent Evidence:
+- %s
+
+Output ONLY a JSON array of objects:
+[{"type": "repetition", "failure_id": 1, "evidence": "what evidence suggests the repeat", "pattern_fact": "", "confidence": 0.9}]
+
+Rules for repetition detection:
+- failure_id must be a failure ID from the list above.
+- Only flag a repetition if the recent evidence clearly matches the same type of mistake.
+- The evidence field must explain what in the recent text matches the failure pattern.
+
+Rules for pattern extraction (higher-order):
+- If you notice a recurring theme across multiple failures, output a pattern object:
+  {"type": "pattern", "failure_id": 0, "evidence": "", "pattern_fact": "agent consistently fails at X type of task", "confidence": 0.8}
+- Pattern facts must be general enough to cover multiple failures but specific enough to be actionable.
+- If no repetitions or patterns are found, output: []
+- confidence must be between 0.5 and 1.0.`, strings.Join(failureLines, "\n"), strings.Join(evidence, "\n- "))
+
+	msgs := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(systemPrompt),
+		openai.UserMessage(prompt),
+	}
+
+	failureIDs := make(map[int64]bool)
+	for _, f := range failures {
+		failureIDs[f.ID] = true
+	}
+
+	var result []*FailurePatternResult
+	var valErr error
+
+	for attempt := 0; attempt < 2; attempt++ {
+		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+			Model:    o.model,
+			Messages: msgs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+		}
+		if len(resp.Choices) == 0 {
+			return nil, errors.New("reasoner: no response from LLM")
+		}
+
+		output := strings.TrimSpace(resp.Choices[0].Message.Content)
+		raw := extractJSON(output)
+
+		var jpatterns []jsonFailurePattern
+		if err := json.Unmarshal([]byte(raw), &jpatterns); err != nil {
+			valErr = fmt.Errorf("parse json: %w", err)
+			msgs = append(msgs, openai.SystemMessage(retryWarning))
+			continue
+		}
+
+		var validated []*FailurePatternResult
+		validationFailed := false
+
+		for _, jp := range jpatterns {
+			switch jp.Type {
+			case "repetition":
+				if !failureIDs[jp.FailureID] {
+					validationFailed = true
+					break
+				}
+				if jp.Evidence == "" {
+					continue
+				}
+				conf := jp.Confidence
+				if conf < 0.5 {
+					conf = 0.5
+				}
+				if conf > 1.0 {
+					conf = 1.0
+				}
+				validated = append(validated, &FailurePatternResult{
+					Type:       "repetition",
+					FailureID:  jp.FailureID,
+					Evidence:   jp.Evidence,
+					Confidence: conf,
+				})
+			case "pattern":
+				if jp.PatternFact == "" {
+					continue
+				}
+				conf := jp.Confidence
+				if conf < 0.5 {
+					conf = 0.5
+				}
+				if conf > 1.0 {
+					conf = 1.0
+				}
+				validated = append(validated, &FailurePatternResult{
+					Type:        "pattern",
+					PatternFact: jp.PatternFact,
+					Confidence:  conf,
+				})
+			default:
+				continue
+			}
+		}
+
+		if validationFailed {
+			valErr = errors.New("failure pattern references non-existent failure ID")
+			msgs = append(msgs, openai.SystemMessage(retryWarning+" Failure IDs must be from the provided list only."))
+			continue
+		}
+
+		result = validated
+		valErr = nil
+		break
+	}
+
+	if valErr != nil {
+		return nil, valErr
+	}
+
+	return result, nil
+}
+
+// --- ReasonHypothesisEvidence ---
+
+func (o *OpenAI) ReasonHypothesisEvidence(ctx context.Context, hypotheses []models.Hypothesis, facts []models.Fact) ([]*HypothesisEvidenceResult, error) {
+	if len(hypotheses) == 0 || len(facts) == 0 {
+		return nil, nil
+	}
+
+	var hypLines []string
+	for _, h := range hypotheses {
+		hypLines = append(hypLines, fmt.Sprintf("[Hypothesis %d] (status: %s, confidence: %.2f) %s", h.ID, h.Status, h.Confidence, h.Content))
+	}
+
+	var factLines []string
+	for _, f := range facts {
+		factLines = append(factLines, fmt.Sprintf("[Fact %d] %s", f.ID, f.Content))
+	}
+
+	prompt := fmt.Sprintf(`Given these open hypotheses and recent facts, assess whether each fact supports, weakens, or contradicts any hypothesis.
+
+Open Hypotheses:
+%s
+
+Recent Facts:
+%s
+
+Output ONLY a JSON array of objects:
+[{"hypothesis_id": 1, "verdict": "supports|weakens|contradicts|irrelevant", "confidence": 0.9, "reasoning": "brief explanation", "new_confidence": 0.7}]
+
+Rules:
+- hypothesis_id must be a hypothesis ID from the list above.
+- Use "supports" if the fact provides evidence confirming or reinforcing the hypothesis.
+- Use "weakens" if the fact provides evidence against but does not conclusively disprove the hypothesis.
+- Use "contradicts" if the fact conclusively disproves the hypothesis.
+- Use "irrelevant" if the fact has no bearing on the hypothesis.
+- new_confidence is the suggested updated confidence for the hypothesis based on this evidence.
+  - If supports: new_confidence should be higher than current confidence.
+  - If weakens: new_confidence should be lower than current confidence.
+  - If contradicts: new_confidence should be significantly lower (below 0.3).
+- Only output assessments for hypotheses where the facts are relevant. If none are affected, output: []
+- confidence must be between 0.5 and 1.0.
+- new_confidence must be between 0.0 and 1.0.`, strings.Join(hypLines, "\n"), strings.Join(factLines, "\n"))
+
+	msgs := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(systemPrompt),
+		openai.UserMessage(prompt),
+	}
+
+	hypIDs := make(map[int64]bool)
+	for _, h := range hypotheses {
+		hypIDs[h.ID] = true
+	}
+
+	var result []*HypothesisEvidenceResult
+	var valErr error
+
+	for attempt := 0; attempt < 2; attempt++ {
+		resp, err := o.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+			Model:    o.model,
+			Messages: msgs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("chat.completions call failed: %w", err)
+		}
+		if len(resp.Choices) == 0 {
+			return nil, errors.New("reasoner: no response from LLM")
+		}
+
+		output := strings.TrimSpace(resp.Choices[0].Message.Content)
+		raw := extractJSON(output)
+
+		var jevidence []jsonHypothesisEvidence
+		if err := json.Unmarshal([]byte(raw), &jevidence); err != nil {
+			valErr = fmt.Errorf("parse json: %w", err)
+			msgs = append(msgs, openai.SystemMessage(retryWarning))
+			continue
+		}
+
+		var validated []*HypothesisEvidenceResult
+		validationFailed := false
+
+		for _, je := range jevidence {
+			if !hypIDs[je.HypothesisID] {
+				validationFailed = true
+				break
+			}
+
+			verdict := je.Verdict
+			switch verdict {
+			case "supports", "weakens", "contradicts", "irrelevant":
+			default:
+				verdict = "irrelevant"
+			}
+
+			if verdict == "irrelevant" {
+				continue
+			}
+
+			conf := je.Confidence
+			if conf < 0.5 {
+				conf = 0.5
+			}
+			if conf > 1.0 {
+				conf = 1.0
+			}
+
+			newConf := je.NewConfidence
+			if newConf < 0 {
+				newConf = 0
+			}
+			if newConf > 1 {
+				newConf = 1
+			}
+
+			validated = append(validated, &HypothesisEvidenceResult{
+				HypothesisID:  je.HypothesisID,
+				Verdict:       verdict,
+				Confidence:    conf,
+				Reasoning:     je.Reasoning,
+				NewConfidence: newConf,
+			})
+		}
+
+		if validationFailed {
+			valErr = errors.New("hypothesis evidence references non-existent hypothesis ID")
+			msgs = append(msgs, openai.SystemMessage(retryWarning+" Hypothesis IDs must be from the provided list only."))
 			continue
 		}
 
