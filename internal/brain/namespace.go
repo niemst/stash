@@ -42,7 +42,7 @@ func (b *Brain) CreateNamespace(ctx context.Context, slug, name, description str
 
 	var id int64
 	err := b.pool.QueryRow(ctx,
-		"INSERT INTO namespaces (slug, name, description) VALUES ($1, $2, $3) RETURNING id",
+		"INSERT INTO namespaces (slug, name, description) VALUES ($1, $2, $3) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, updated_at = now() RETURNING id",
 		slug, name, description,
 	).Scan(&id)
 	if err != nil {
