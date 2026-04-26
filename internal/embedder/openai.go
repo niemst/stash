@@ -68,7 +68,8 @@ func (o *OpenAI) Embed(ctx context.Context, text string) ([]float32, error) {
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: []string{text},
 		},
-		Model: o.model,
+		Model:      o.model,
+		Dimensions: openai.Int(int64(o.dims)),
 	})
 	if err != nil {
 		return nil, err

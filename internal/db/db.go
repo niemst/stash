@@ -140,7 +140,7 @@ func validateModelLock(ctx context.Context, pool *pgxpool.Pool, expected string)
 	}
 
 	if stored != "" && stored != expected {
-		return fmt.Errorf("embedding model mismatch: database has %q, config expects %q. Run `stash reset` to clear data", stored, expected)
+		return fmt.Errorf("embedding model mismatch: database has %q, config expects %q. Change STASH_EMBEDDING_MODEL to match the database, or delete the database and restart", stored, expected)
 	}
 
 	return nil
