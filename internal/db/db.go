@@ -115,33 +115,52 @@ func Open(ctx context.Context, dsn string, expectedModel string, vectorDim int) 
 		}
 	}
 
-	// Validate model lock: current setting must match expected or be empty.
-	if err := validateModelLock(ctx, pool, expectedModel); err != nil {
+	// Validate dimension lock: vector dimension must match expected or be empty.
+	// This allows switching between different embedding models as long as they have the same dimension.
+	if err := validateDimensionLock(ctx, pool, vectorDim); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("model lock: %w", err)
+		return nil, fmt.Errorf("dimension lock: %w", err)
+	}
+
+	// Store embedding model metadata for audit purposes (dimension is what matters for storage).
+	if err := storeEmbeddingModelMetadata(ctx, pool, expectedModel); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("store embedding model metadata: %w", err)
 	}
 
 	return pool, nil
 }
 
-func validateModelLock(ctx context.Context, pool *pgxpool.Pool, expected string) error {
-	var stored string
+// validateDimensionLock ensures the vector dimension stored in the database matches the config.
+// This is the actual storage constraint; the specific embedding model can vary as long as dimensions match.
+func validateDimensionLock(ctx context.Context, pool *pgxpool.Pool, expectedDim int) error {
+	var storedDim int
 	err := pool.QueryRow(ctx,
-		"SELECT value FROM settings WHERE key = 'embedding_model'",
-	).Scan(&stored)
+		"SELECT value FROM settings WHERE key = 'vector_dimension'",
+	).Scan(&storedDim)
 
 	if err != nil {
-		// No row yet — store the expected model.
+		// No row yet — store the expected dimension.
 		_, err := pool.Exec(ctx,
-			"INSERT INTO settings (key, value) VALUES ('embedding_model', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
-			expected,
+			"INSERT INTO settings (key, value) VALUES ('vector_dimension', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+			expectedDim,
 		)
 		return err
 	}
 
-	if stored != "" && stored != expected {
-		return fmt.Errorf("embedding model mismatch: database has %q, config expects %q. Change STASH_EMBEDDING_MODEL to match the database, or delete the database and restart", stored, expected)
+	if storedDim != 0 && storedDim != expectedDim {
+		return fmt.Errorf("vector dimension mismatch: database has %d, config expects %d. You can switch between different embedding models as long as they output the same dimension. Change STASH_VECTOR_DIM to match the database, or delete the database and restart", storedDim, expectedDim)
 	}
 
 	return nil
+}
+
+// storeEmbeddingModelMetadata records which embedding model is being used, for audit/monitoring purposes.
+// This does not affect storage constraints (which are based on vector dimension only).
+func storeEmbeddingModelMetadata(ctx context.Context, pool *pgxpool.Pool, model string) error {
+	_, err := pool.Exec(ctx,
+		"INSERT INTO settings (key, value) VALUES ('embedding_model', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+		model,
+	)
+	return err
 }
