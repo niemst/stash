@@ -304,7 +304,8 @@ func (b *Brain) consolidateEpisodesToFacts(ctx context.Context, nsID int64, cp *
 		}
 	}
 
-	if maxID > cp.LastEpisodeID {
+	// Only advance checkpoint if no errors occurred (bullet-proof: prevents losing episodes)
+	if len(errs) == 0 && maxID > cp.LastEpisodeID {
 		cp.LastEpisodeID = maxID
 	}
 	return
@@ -472,7 +473,8 @@ func (b *Brain) consolidateFactsToRelationships(ctx context.Context, nsID int64,
 		}
 	}
 
-	if maxID > cp.LastFactID {
+	// Only advance checkpoint if no errors occurred (bullet-proof: prevents losing facts)
+	if len(errs) == 0 && maxID > cp.LastFactID {
 		cp.LastFactID = maxID
 	}
 	return
@@ -597,7 +599,7 @@ func (b *Brain) consolidateToPatterns(ctx context.Context, nsID int64, cp *model
 
 	if len(rels) == 0 && len(facts) < 3 {
 		// Not enough data for pattern extraction
-		b.updatePatternCheckpoint(ctx, cp, facts, rels)
+		b.updatePatternCheckpoint(ctx, cp, facts, rels, len(errs) == 0)
 		return
 	}
 
@@ -606,7 +608,7 @@ func (b *Brain) consolidateToPatterns(ctx context.Context, nsID int64, cp *model
 	llmCalls++
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("reason patterns: %v", err))
-		b.updatePatternCheckpoint(ctx, cp, facts, rels)
+		// Don't update checkpoint on error
 		return
 	}
 
@@ -662,11 +664,16 @@ func (b *Brain) consolidateToPatterns(ctx context.Context, nsID int64, cp *model
 		count++
 	}
 
-	b.updatePatternCheckpoint(ctx, cp, facts, rels)
+	// Only update checkpoint if no errors occurred (bullet-proof: prevents losing patterns)
+	b.updatePatternCheckpoint(ctx, cp, facts, rels, len(errs) == 0)
 	return
 }
 
-func (b *Brain) updatePatternCheckpoint(ctx context.Context, cp *models.ConsolidationProgress, facts []models.Fact, rels []models.Relationship) {
+func (b *Brain) updatePatternCheckpoint(ctx context.Context, cp *models.ConsolidationProgress, facts []models.Fact, rels []models.Relationship, success bool) {
+	// Only advance checkpoint if no errors occurred
+	if !success {
+		return
+	}
 	for _, f := range facts {
 		if f.ID > cp.LastPatternFactID {
 			cp.LastPatternFactID = f.ID
