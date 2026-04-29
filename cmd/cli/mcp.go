@@ -44,7 +44,7 @@ func render(name string) string {
 }
 
 func newMCPServer(bc *bootstrap.Context) *server.MCPServer {
-	mcpServer := server.NewMCPServer("stash", "0.2.7",
+	mcpServer := server.NewMCPServer("stash", "0.2.8",
 		server.WithToolCapabilities(true),
 		server.WithDescription(render("server_description")),
 	)
@@ -195,10 +195,13 @@ func newMCPServer(bc *bootstrap.Context) *server.MCPServer {
 	mcpServer.AddTool(mcp.NewTool("set_context",
 		mcp.WithDescription(render("set_context_description")),
 		mcp.WithString("focus", mcp.Description(render("set_context_focus")), mcp.Required()),
-		mcp.WithString("namespace", mcp.Description(render("namespace_param"))),
+		mcp.WithString("namespace", mcp.Description(render("context_namespace_param")), mcp.Required()),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		focus := request.GetString("focus", "")
-		namespace := request.GetString("namespace", "/")
+		namespace := request.GetString("namespace", "")
+		if namespace == "" {
+			return nil, fmt.Errorf("namespace is required for context tools")
+		}
 		if err := bc.Brain.SetContext(ctx, namespace, focus, time.Now().UTC().Add(1*time.Hour)); err != nil {
 			return nil, err
 		}
@@ -207,9 +210,12 @@ func newMCPServer(bc *bootstrap.Context) *server.MCPServer {
 
 	mcpServer.AddTool(mcp.NewTool("get_context",
 		mcp.WithDescription(render("get_context_description")),
-		mcp.WithString("namespace", mcp.Description(render("namespace_param"))),
+		mcp.WithString("namespace", mcp.Description(render("context_namespace_param")), mcp.Required()),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		namespace := request.GetString("namespace", "/")
+		namespace := request.GetString("namespace", "")
+		if namespace == "" {
+			return nil, fmt.Errorf("namespace is required for context tools")
+		}
 		c, err := bc.Brain.GetContext(ctx, namespace)
 		if err != nil {
 			return nil, err
@@ -223,9 +229,12 @@ func newMCPServer(bc *bootstrap.Context) *server.MCPServer {
 
 	mcpServer.AddTool(mcp.NewTool("clear_context",
 		mcp.WithDescription(render("clear_context_description")),
-		mcp.WithString("namespace", mcp.Description(render("namespace_param"))),
+		mcp.WithString("namespace", mcp.Description(render("context_namespace_param")), mcp.Required()),
 	), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		namespace := request.GetString("namespace", "/")
+		namespace := request.GetString("namespace", "")
+		if namespace == "" {
+			return nil, fmt.Errorf("namespace is required for context tools")
+		}
 		if err := bc.Brain.ClearContext(ctx, namespace); err != nil {
 			return nil, err
 		}

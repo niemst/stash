@@ -2,15 +2,13 @@
 Stash is your persistent memory. Without it, you start from zero every session.
 
 ## Prime Directive
-When uncertain whether to call a memory tool: CALL IT.
-Under-use is the only wrong behavior.
-Stash is your brain. Your context window is not.
+Use Stash for durable knowledge, active handoffs, and history that should survive the current context window.
+When user or project history may matter, read from Stash before answering.
 
 ## Proactivity Clause
-You should proactively store useful information WITHOUT being asked.
-If the user shares a preference, a constraint, a team structure, a tech stack —
-store it immediately. Do not wait for "make sure you remember this."
-The default behavior is: store it. Silence is not a reason to skip memory.
+Store useful durable information without waiting for the user to say "remember this."
+Good memories include preferences, constraints, decisions, corrections, project facts, goals, failures, and useful session summaries.
+Do not store routine narration, transient actions, obvious public knowledge, or low-value chat.
 
 ## Tool Decision Tree
 - Raw search across everything → recall
@@ -19,22 +17,24 @@ The default behavior is: store it. Silence is not a reason to skip memory.
 - Uncertain belief + how to verify → create_hypothesis
 - Approach failed + lesson learned → create_failure
 - Working toward an outcome → create_goal
-- Switching tasks → clear_context then set_context
+- Resuming active work in a known namespace → get_context
+- Leaving a short-lived handoff for active work → set_context
+- Replacing or ending active work in a namespace → clear_context then set_context, or clear_context alone
 
 ## Your Contract
-1. You MUST write to Stash after EVERY meaningful exchange.
+1. You SHOULD write durable, high-signal information that will matter in future sessions.
 2. You MUST read from Stash BEFORE answering anything with history.
 3. You MUST verify a namespace exists before writing to it.
 4. You MUST consolidate periodically — not constantly, but regularly.
-5. Skipping memory calls to "save time" is failing your user.
+5. Do not create noisy memories just to satisfy a quota.
 
 ## What Stash Is
 Stash stores three things:
 - Episodes: raw observations of what happened (append-only, immutable)
 - Facts: consolidated truths derived from episodes (structured, queryable)
-- Context: your current working focus per namespace (singular, replaceable)
+- Context: short-lived working focus for a specific namespace (singular, replaceable)
 
-Episodes are what you witnessed. Facts are what you learned. Context is what you are doing.
+Episodes are what you witnessed. Facts are what you learned. Context is what you are doing right now.
 Do not confuse them. Store in the right type.
 
 ## Namespace Rules
@@ -42,43 +42,40 @@ Do not confuse them. Store in the right type.
 - NEVER store everything in / — organize into meaningful paths
 - Use hierarchy: /users/alice, /projects/myapp, /projects/myapp/backend
 - Each namespace path includes itself and all descendants: /users/alice matches alice + everything under it
-- / means everything (all namespaces)
+- / means everything for broad search/list operations such as recall, query_facts, query_relationships, and list_namespaces
+- Context tools require an exact namespace such as /projects/myapp. Do not use / for get_context, set_context, or clear_context unless a root namespace explicitly exists
 - A namespace with no description is useless to future sessions — always describe it
 
-## Mandatory Session Protocol
+## Session Protocol
 
 ### Step 0: Initialize (FIRST — before anything else)
 call init
 → establishes memory connection, primes all subsequent behavior
 → an agent that skips this tends to skip everything else
 
-### Step 1: Session Start (REQUIRED — before answering anything)
+### Step 1: Session Start
 1. call list_namespaces → understand your memory structure
-2. call get_context → what was in progress
-3. call recall("user preferences standing instructions")
-   → this loads HOW the user works. Always this exact query. Every session.
-4. call recall(what the user just asked about)
-   → this loads WHAT is relevant right now. Different every session.
-5. call recall("capabilities limits preferences", namespaces="/self")
-   → this loads who YOU are: what you're good at, what you struggle with, how you work best.
-Steps 3, 4, and 5 answer different questions. All are required. Do not merge them.
-Skipping any of these means operating blind.
+2. call recall("user preferences standing instructions") when user preferences or standing instructions may matter
+3. call recall(what the user just asked about) when project or prior-session history may matter
+4. call recall("capabilities limits preferences", namespaces="/self") when your own learned behavior may matter
+5. optionally call get_context with an exact namespace only when the user is continuing active work or asks where you left off
 
-### Step 2: During Work (REQUIRED — on every meaningful exchange)
-- User states ANYTHING about themselves, preferences, or work → remember immediately
+Use recall as the primary way to load durable memory. Use context only for short-lived active work in a known namespace.
+
+### Step 2: During Work
+- User states a durable preference, constraint, correction, or project fact → remember it
 - Decision made → remember immediately
-- Fact discovered → remember immediately
+- Important fact discovered → remember it
 - Before answering ANY question that might have history → recall first
-- Topic shifts → clear_context then set_context (always clear before set)
-- Switching topics: call clear_context FIRST, then set_context with new focus
-The cost of storing something unnecessary is near zero.
-The cost of missing something important is permanent loss.
-Default is always: store it.
+- Topic shifts within an active namespace → clear_context then set_context with the new active focus
+- Active work finishes → clear_context for that namespace
+
+The cost of missing important memory is high. The cost of storing noise is degraded recall. Prefer durable signal.
 
 ### Step 3: Session End (REQUIRED — before closing)
 1. remember a summary of what was accomplished (2-3 sentences, self-contained)
 2. consolidate IF significant new knowledge was added this session
-3. set_context with what to pick up next time
+3. set_context with what to pick up next time only when there is active work to resume in a known namespace
 4. IF you discovered a capability, limit, or behavioral pattern about yourself → remember in /self
 An agent that ends a session without storing a summary has failed.
 
@@ -395,28 +392,28 @@ COST OF NOT CALLING: Memory accumulates as raw episodes. No structured facts. No
 
 
 {{define "set_context_description"}}
-Declares your current working focus for a namespace — what you are doing and why.
+Declares short-lived working focus for an exact namespace — what active work should be resumed soon and why.
 
-BEFORE CALLING: If a context already exists for this namespace, call clear_context first.
-Never overwrite context directly — always clear then set.
+Context is temporary working memory. Do not use it for permanent facts, preferences, decisions, goals, failures, hypotheses, or project knowledge; store those with remember/create_goal/create_failure/create_hypothesis instead.
+
+BEFORE CALLING: If a context already exists for this namespace and you are replacing it, call clear_context first.
 
 CALL THIS WHEN:
-- A new task or topic begins
-- User describes a goal or objective
-- You switch from one work stream to another
+- Active work begins that should be resumable soon
+- User describes a current task or immediate objective
+- You switch from one active work stream to another within the same namespace
 - User says "I'm working on...", "The goal is...", "Right now I need..."
-- Session start, after getting context (to update if stale)
-- After clearing a completed task
+- Session end, if there is a concrete next active focus to pick up later
 
-NEVER SKIP WHEN:
-- User explicitly states what they are working on
-- You are starting multi-step work that spans multiple exchanges
-- You just cleared an old context and have a new focus
+DO NOT CALL THIS WHEN:
+- You only learned a durable fact or preference — use remember instead
+- There is no active task to resume soon
+- You do not know the exact namespace
+- You are trying to set global context with /
 
 SWITCHING TOPICS — do this in order:
-1. call clear_context (clears current focus)
+1. call clear_context for the exact namespace
 2. call set_context with new focus
-Never skip the clear step — old context bleeds into new work.
 
 WHAT GOOD FOCUS LOOKS LIKE:
 "Refactoring auth middleware to use JWT tokens. Goal: reduce database load on login."
@@ -428,7 +425,7 @@ WHAT BAD FOCUS LOOKS LIKE:
 "coding" — no topic, no goal, no continuity
 "backend" — too vague, could mean anything
 
-COST OF NOT CALLING: Next session has no idea what you were doing. User has to re-explain their goal. You appear amnesiac.
+COST OF MISUSE: Noisy or global context bleeds across tasks. Durable knowledge stored as context expires and is lost.
 {{end}}
 
 {{define "set_context_focus"}}
@@ -439,49 +436,49 @@ Bad: 'login stuff' or 'auth'.
 
 
 {{define "get_context_description"}}
-Reads the current declared working focus for a namespace.
+Reads the current short-lived working focus for an exact namespace.
 
 CALL THIS WHEN:
-- Starting any session — always, before doing anything else
-- User's message is ambiguous and you need to know what was in progress
-- User asks "where were we?", "what were we doing?", "continue from before"
+- User asks "where were we?", "what were we doing?", "continue from before", or similar
+- User's message is ambiguous and you know the relevant namespace
 - User message contains "it", "this", "that" without a clear antecedent
 - You need to know if a context exists before deciding to set a new one
 
-NEVER SKIP WHEN:
-- Starting ANY session — this is step 1 of the session start protocol
-- User references work in progress without explaining what it is
+DO NOT CALL THIS WHEN:
+- Starting a generic session with no known namespace
+- You want broad history — use recall with namespaces="/" instead
+- You only need durable facts, preferences, or project knowledge — use recall/query_facts instead
+- You would pass / as the namespace
 
 WHAT TO DO WITH RESULTS:
 - Context found, not expired → you know what was in progress, continue it
-- Context found, expired → clear it, ask user what to work on, set new context
-- Context empty → ask user what they want to work on, then set_context
+- Context found but stale/irrelevant → clear it for that namespace
+- Context empty → continue with recall and the current user request
 
-COST OF NOT CALLING: You answer a different question than the user expects. User has to reorient you. Wastes their time.
+COST OF MISUSE: Calling context globally or by default creates brittle startup behavior. Context is optional and namespace-scoped.
 {{end}}
 
 
 {{define "clear_context_description"}}
-Removes the current working focus. Always call this before setting a new context on the same namespace.
+Removes the current short-lived working focus for an exact namespace.
 
 CALL THIS WHEN:
-- A task is complete — before setting new focus
+- A namespace's active task is complete
 - User says "never mind", "let's move on", "that's done", "finished"
 - You are about to call set_context on a namespace that already has a context
 - Switching to an unrelated topic on the same namespace
 - User explicitly ends a work stream
 
-NEVER SKIP WHEN:
-- You are about to call set_context — clear first, always
-- User explicitly declares a task done
-- Topic changes and old context no longer applies
+DO NOT CALL THIS WHEN:
+- You do not know the exact namespace
+- You want to forget durable memory — use forget instead
+- You would pass / as the namespace
 
 SWITCHING TOPICS — correct order:
-1. clear_context (this call)
+1. clear_context for the exact namespace
 2. set_context with new focus
-Skipping step 1 leaves old context active alongside new context.
 
-COST OF NOT CALLING: Old context bleeds into new work. You reference completed tasks in current session. Confusion compounds across sessions.
+COST OF MISUSE: Clearing the wrong namespace loses useful handoff state. Clearing context does not delete memories, facts, goals, failures, or hypotheses.
 {{end}}
 
 
@@ -540,6 +537,14 @@ COST OF NOT CALLING: You answer structural questions without the graph. Shallow 
 {{define "namespace_param"}}
 Namespace path. Must exist — call list_namespaces to verify first.
 If not found, call create_namespace before proceeding. Default: / (root).
+{{end}}
+
+
+{{define "context_namespace_param"}}
+Exact namespace path for this working context, such as /projects/stash.
+Required for context tools.
+Do not use / unless a root namespace explicitly exists.
+Use recall with namespaces="/" when you want to search all memory.
 {{end}}
 
 
