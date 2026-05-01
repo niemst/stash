@@ -31,7 +31,7 @@ type Config struct {
 	// Consolidation
 	ConsolidationBatchSize           int     `env:"STASH_CONSOLIDATION_BATCH_SIZE" envDefault:"100"`
 	ConsolidationSimilarityThreshold float64 `env:"STASH_CONSOLIDATION_SIMILARITY_THRESHOLD" envDefault:"0.85"`
-	ConsolidationDedupThreshold      float64 `env:"STASH_CONSOLIDATION_DEDUP_THRESHOLD" envDefault:"0.95"`
+	ConsolidationDedupThreshold      float64 `env:"STASH_CONSOLIDATION_DEDUP_THRESHOLD" envDefault:"0.85"`
 	ConsolidationWindow              string  `env:"STASH_CONSOLIDATION_WINDOW" envDefault:"168h"`
 	DecayFactor                          float64 `env:"STASH_DECAY_FACTOR" envDefault:"0.95"`
 	ExpiryThreshold                      float32 `env:"STASH_EXPIRY_THRESHOLD" envDefault:"0.1"`

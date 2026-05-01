@@ -1435,7 +1435,165 @@
             font-size: 11px;
         }
 
+        /* MCP INTEGRATIONS */
+        #mcp { padding: 120px 0; border-top: 1px solid var(--border); }
+
+        .mcp-url-hero {
+            max-width: 700px;
+            margin: 0 auto 64px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+        }
+        .mcp-url-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+        }
+        .mcp-url-box {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border: 2px solid var(--amber);
+            background: rgba(232,160,32,0.06);
+            width: 100%;
+        }
+        .mcp-url-text {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 20px;
+            color: var(--amber);
+            padding: 18px 28px;
+            flex: 1;
+            letter-spacing: 0.02em;
+        }
+        .mcp-url-copy {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            background: var(--amber);
+            color: var(--bg);
+            border: none;
+            padding: 0 24px;
+            height: 100%;
+            min-height: 58px;
+            cursor: pointer;
+            letter-spacing: 0.08em;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .mcp-url-copy:hover { background: #fff; }
+        .mcp-url-sub {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .mcp-url-sub code {
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--amber-dim);
+            font-size: 12px;
+        }
+
+        .integrations-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .integrations-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2px;
+            margin-bottom: 16px;
+        }
+        .integration-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .integration-card:hover { border-color: var(--amber-dim); }
+        .integration-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.2);
+        }
+        .integration-name {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 13px;
+            color: var(--amber);
+            font-weight: 500;
+        }
+        .integration-path {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .integration-code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--text-dim);
+            padding: 20px;
+            margin: 0;
+            line-height: 1.7;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .mcp-note {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+            padding: 16px;
+            border: 1px dashed var(--border);
+            margin-bottom: 48px;
+        }
+        .mcp-note code {
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--amber);
+            font-size: 12px;
+        }
+
+        .mcp-tools {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 32px;
+        }
+        .mcp-tools-label {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+        .mcp-tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+        }
+        .tool-group-title {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--amber);
+            margin-bottom: 8px;
+            letter-spacing: 0.05em;
+        }
+        .tool-list {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
         /* Mobile */
+
 
 
 
@@ -1448,7 +1606,10 @@
             .nav-links { display: none; }
             #hero { padding: 120px 24px 80px; }
             .container { padding: 0 24px; }
-            .ns-layout { grid-template-columns: 1fr; gap: 40px; }
+            .integrations-grid { grid-template-columns: 1fr; }
+            .mcp-tools-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+            .mcp-url-text { font-size: 14px; padding: 14px 16px; }
+
             .ns-cards { grid-template-columns: 1fr; }
 
             .rag-vs, .analogy-arrow { justify-content: center; padding-top: 0; }
@@ -2007,6 +2168,119 @@
     </div>
 </section>
 
+<!-- MCP -->
+<section id="mcp">
+    <div class="container">
+        <div class="section-tag reveal">MCP Integration</div>
+        <h2 class="section-headline reveal">Works with <em>any MCP client.</em></h2>
+        <p class="section-sub reveal" style="margin: 0 auto 48px;">Start Stash, point any MCP-compatible agent at the URL below. That's it. No SDK. No vendor lock-in.</p>
+
+        <!-- THE URL — hero of this section -->
+        <div class="mcp-url-hero reveal">
+            <div class="mcp-url-label">MCP Server URL</div>
+            <div class="mcp-url-box">
+                <span class="mcp-url-text">http://localhost:8080/sse</span>
+                <button class="mcp-url-copy" onclick="navigator.clipboard.writeText('http://localhost:8080/sse');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+            </div>
+            <div class="mcp-url-sub">Stash is already running after <code>docker compose up</code> — just copy the URL above into your agent.</div>
+        </div>
+
+        <!-- INTEGRATION EXAMPLES -->
+        <div class="integrations-label reveal">Example configs for popular clients</div>
+        <div class="integrations-grid reveal">
+
+            <div class="integration-card">
+                <div class="integration-header">
+                    <span class="integration-name">Cursor</span>
+                    <span class="integration-path">~/.cursor/mcp.json</span>
+                </div>
+                <pre class="integration-code">{
+  "mcpServers": {
+    "stash": {
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}</pre>
+            </div>
+
+            <div class="integration-card">
+                <div class="integration-header">
+                    <span class="integration-name">Claude Desktop</span>
+                    <span class="integration-path">claude_desktop_config.json</span>
+                </div>
+                <pre class="integration-code">{
+  "mcpServers": {
+    "stash": {
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}</pre>
+            </div>
+
+            <div class="integration-card">
+                <div class="integration-header">
+                    <span class="integration-name">OpenCode</span>
+                    <span class="integration-path">~/.config/opencode/config.json</span>
+                </div>
+                <pre class="integration-code">{
+  "mcp": {
+    "stash": {
+      "type": "remote",
+      "url": "http://localhost:8080/sse",
+      "enabled": true
+    }
+  }
+}</pre>
+            </div>
+
+            <div class="integration-card">
+                <div class="integration-header">
+                    <span class="integration-name">Windsurf</span>
+                    <span class="integration-path">~/.codeium/windsurf/mcp_config.json</span>
+                </div>
+                <pre class="integration-code">{
+  "mcpServers": {
+    "stash": {
+      "url": "http://localhost:8080/sse"
+    }
+  }
+}</pre>
+            </div>
+
+        </div>
+
+        <div class="mcp-note reveal">
+            Any agent that supports MCP over SSE works — just point it at <code>http://localhost:8080/sse</code>.
+        </div>
+
+        <!-- TOOLS -->
+        <div class="mcp-tools reveal">
+            <div class="mcp-tools-label">28 MCP tools included</div>
+            <div class="mcp-tools-grid">
+                <div class="tool-group">
+                    <div class="tool-group-title">Memory</div>
+                    <div class="tool-list">remember · recall · forget · init · consolidate</div>
+                </div>
+                <div class="tool-group">
+                    <div class="tool-group-title">Knowledge</div>
+                    <div class="tool-list">query_facts · query_relationships · causal links · contradictions</div>
+                </div>
+                <div class="tool-group">
+                    <div class="tool-group-title">Intent</div>
+                    <div class="tool-list">goals · failures · hypotheses</div>
+                </div>
+                <div class="tool-group">
+                    <div class="tool-group-title">Organization</div>
+                    <div class="tool-list">namespaces · context · self-model</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+
+
 <!-- PIPELINE -->
 <section id="pipeline">
     <div class="container">
@@ -2079,52 +2353,6 @@
                 <span class="pipeline-step-icon">🔬</span>
                 <div class="pipeline-step-name">Hypothesis Scan</div>
                 <div class="pipeline-step-desc">New evidence passively confirms or rejects open hypotheses. No manual intervention needed.</div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- MCP -->
-<section id="mcp">
-    <div class="container">
-        <div class="mcp-layout">
-            <div>
-                <div class="section-tag">MCP Integration</div>
-                <h2 class="mcp-headline">Two commands.<br><em>Any agent.</em></h2>
-                <p class="mcp-body">Stash speaks MCP natively. Drop it into Claude Desktop, Cursor, or any MCP-compatible agent in under 5 minutes. No SDK. No vendor lock-in. Your agent remembers you everywhere.</p>
-                <p class="mcp-body" style="margin-top: -16px;">28 tools covering the full cognitive stack — from raw <code style="font-family:'IBM Plex Mono',monospace;color:var(--amber);font-size:14px;">remember</code> and <code style="font-family:'IBM Plex Mono',monospace;color:var(--amber);font-size:14px;">recall</code> all the way to causal chains, contradiction resolution, and hypothesis management.</p>
-                <div class="compat-list">
-                    <span class="compat-tag">Claude Desktop</span>
-                    <span class="compat-tag">Cursor</span>
-                    <span class="compat-tag">OpenCode</span>
-                    <span class="compat-tag">Custom Agents</span>
-                    <span class="compat-tag">Local LLMs</span>
-                    <span class="compat-tag">Any MCP Client</span>
-                </div>
-            </div>
-            <div class="terminal reveal">
-                <div class="terminal-bar">
-                    <div class="terminal-dot r"></div>
-                    <div class="terminal-dot y"></div>
-                    <div class="terminal-dot g"></div>
-                    <span class="terminal-title">stash · mcp stdio</span>
-                </div>
-                <div class="terminal-body">
-                    <div><span class="t-comment"># Start MCP server (stdio) + consolidation</span></div>
-                    <div><span class="t-prompt">$</span> <span class="t-cmd">./stash mcp execute --with-consolidation</span></div>
-                    <div>&nbsp;</div>
-                    <div><span class="t-comment"># Or SSE for remote agents</span></div>
-                    <div><span class="t-prompt">$</span> <span class="t-cmd">./stash mcp serve --port 8080 --with-consolidation</span></div>
-                    <div>&nbsp;</div>
-                    <div><span class="t-comment"># 28 MCP tools. Full cognitive API:</span></div>
-                    <div><span class="t-output">✓</span> <span class="t-dim">remember · recall · forget · init</span></div>
-                    <div><span class="t-output">✓</span> <span class="t-dim">goals · failures · hypotheses</span></div>
-                    <div><span class="t-output">✓</span> <span class="t-dim">consolidate · query_facts · relationships</span></div>
-                    <div><span class="t-output">✓</span> <span class="t-dim">causal links · contradictions</span></div>
-                    <div><span class="t-output">✓</span> <span class="t-dim">namespaces · context · self-model</span></div>
-                    <div>&nbsp;</div>
-                    <div><span class="t-prompt">$</span> <span class="t-blink"></span></div>
-                </div>
             </div>
         </div>
     </div>

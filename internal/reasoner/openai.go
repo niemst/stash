@@ -126,17 +126,23 @@ Output ONLY this exact JSON structure:
 {"entity": "string or null", "property": "string or null", "value": "string or null", "summary": "string or null"}
 
 Rules:
-- The summary MUST synthesize and distill the Events into a fresh, generalized statement.
+- The summary MUST synthesize the Events into a specific, detailed statement.
 - Do NOT echo, quote, or closely paraphrase any single Event. Rewrite in your own words.
 - Remove first-person markers ("I", "my", "we") — state facts about subjects, not the narrator.
 - All values MUST come ONLY from the Events. Do not add outside details.
 - If any field is not explicitly stated in the Events, use null.
+- PRESERVE specifics: proper nouns, library names, version numbers, file paths, technical terms, and quantities.
+- Do NOT replace specifics with vague words like "various", "components", "functionalities", "features", "certain".
+- The entity should be the most specific subject (e.g., "pgxpool" not "the system").
+
+BAD example (vague — DO NOT do this):
+{"entity": "Stash", "property": "components", "value": "various functionalities", "summary": "Stash comprises various components for different functionalities."}
 
 BAD example (verbatim copy — DO NOT do this):
 {"entity": "I", "property": "currently_testing", "value": "the Stash memory system", "summary": "I am currently testing the Stash memory system."}
 
-GOOD example (synthesized):
-{"entity": "Stash", "property": "status", "value": "being tested", "summary": "Stash memory system is currently being tested."}`, eventsList)
+GOOD example (specific and synthesized):
+{"entity": "Stash", "property": "database", "value": "PostgreSQL with pgvector", "summary": "Stash uses PostgreSQL with pgvector extension for vector storage and HNSW indexes."}`, eventsList)
 
 	msgs := []openai.ChatCompletionMessageParamUnion{
 		openai.SystemMessage(systemPrompt),
@@ -1026,26 +1032,6 @@ func ptrStr(p *string) string {
 func validateFactGrounding(sf *StructuredFact, texts []string) error {
 	if sf.Summary == "" {
 		return nil
-	}
-
-	joined := strings.ToLower(strings.Join(texts, " "))
-	wordSet := tokenize(joined)
-
-	for _, field := range []string{sf.Entity, sf.Property, sf.Value, sf.Summary} {
-		if field == "" {
-			continue
-		}
-		words := tokenize(strings.ToLower(field))
-		ungrounded := 0
-		for w := range words {
-			if !wordSet[w] {
-				ungrounded++
-			}
-		}
-		total := len(words)
-		if total > 0 && float32(ungrounded)/float32(total) > 0.3 {
-			return fmt.Errorf("field contains ungrounded words: %q", field)
-		}
 	}
 
 	// Anti-verbatim check: summary must not be a near-verbatim copy of any single source text

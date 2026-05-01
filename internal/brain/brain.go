@@ -66,7 +66,7 @@ func DefaultConfig() Config {
 	return Config{
 		BatchSize:                      100,
 		SimilarityThreshold:            0.85,
-		DedupThreshold:                 0.95,
+		DedupThreshold:                 0.85,
 		Window:                         7 * 24 * time.Hour,
 		DecayFactor:                    0.95,
 		ExpiryThreshold:                0.1,

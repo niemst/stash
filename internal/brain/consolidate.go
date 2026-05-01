@@ -261,7 +261,7 @@ func (b *Brain) consolidateEpisodesToFacts(ctx context.Context, nsID int64, cp *
 			continue
 		}
 
-		confidence := calculateConfidence(len(cluster))
+		confidence := calculateConfidence(len(cluster), sf.Entity != "" && sf.Property != "")
 		now := time.Now().UTC()
 
 		var factID int64
@@ -369,11 +369,18 @@ func (b *Brain) factExistsByVector(ctx context.Context, nsID int64, vec []float3
 	return score >= float32(b.config.DedupThreshold), nil
 }
 
-func calculateConfidence(observationCount int) float32 {
+func calculateConfidence(observationCount int, hasStructuredFields bool) float32 {
 	if observationCount == 0 {
 		return 0.0
 	}
-	return float32(observationCount) / float32(observationCount+2)
+	base := float32(observationCount) / float32(observationCount+2)
+	if hasStructuredFields {
+		base = base + (1-base)*0.3
+	}
+	if base > 1.0 {
+		base = 1.0
+	}
+	return base
 }
 
 func cosineSimilarity(a, b []float32) float32 {
