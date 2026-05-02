@@ -26,7 +26,7 @@ services:
     environment:
       # Required
       STASH_POSTGRES_DSN: postgresql://stash:stash_dev_password@postgres:5432/stash?sslmode=disable
-      STASH_VECTOR_DIM: 1536
+      STASH_VECTOR_DIM: ${STASH_VECTOR_DIM:-768}
       STASH_MAX_RESULT_SIZE: 10000
       STASH_OPENAI_API_KEY: ${STASH_OPENAI_API_KEY}
       STASH_OPENAI_BASE_URL: ${STASH_OPENAI_BASE_URL}
