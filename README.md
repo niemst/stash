@@ -17,6 +17,8 @@ docker compose up
 
 That's it. Postgres + pgvector, migrations, MCP server with background consolidation — all in one command.
 
+**Next:** [Getting Started guide](docs/GETTING_STARTED.md) — connect your MCP client, run `init` / `remember` / `recall`, and verify everything works.
+
 ## MCP Client Setup
 
 After `docker compose up`, Stash exposes an MCP server over SSE at:

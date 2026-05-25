@@ -1536,6 +1536,18 @@
     font-size: 11px;
     color: var(--text-muted);
   }
+  .integration-copy {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    background: var(--amber);
+    color: #000;
+    border: none;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .integration-copy:hover { background: #fff; }
   .integration-code {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px;
@@ -2138,6 +2150,10 @@
             <div class="qs-step-num">3</div>
             <div class="qs-step-text">Run <code>docker compose up</code> — that's it. Stash is live.</div>
           </div>
+          <div class="qs-step">
+            <div class="qs-step-num">4</div>
+            <div class="qs-step-text">Connect your MCP client (see below) — then run <code>init</code> → <code>remember</code> → <code>recall</code>. <a href="GETTING_STARTED.md" style="color:var(--amber)">Full walkthrough →</a></div>
+          </div>
         </div>
       </div>
       <div class="qs-right">
@@ -2190,7 +2206,7 @@
       <div class="mcp-url-label">MCP Server URL</div>
       <div class="mcp-url-box">
         <span class="mcp-url-text">http://localhost:8080/sse</span>
-        <button class="mcp-url-copy" onclick="navigator.clipboard.writeText('http://localhost:8080/sse');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',2000)">Copy</button>
+        <button class="mcp-url-copy" type="button" data-copy="http://localhost:8080/sse">Copy</button>
       </div>
       <div class="mcp-url-sub">Stash is already running after <code>docker compose up</code> — just copy the URL above into your agent.</div>
     </div>
@@ -2217,9 +2233,10 @@
       <div class="integration-card">
         <div class="integration-header">
           <span class="integration-name">Cursor</span>
-          <span class="integration-path">~/.cursor/mcp.json</span>
+          <button class="integration-copy" type="button" data-copy-target="cfg-cursor">Copy config</button>
         </div>
-        <pre class="integration-code">{
+        <div class="integration-path">~/.cursor/mcp.json</div>
+        <pre class="integration-code" id="cfg-cursor">{
   "mcpServers": {
     "stash": {
       "url": "http://localhost:8080/sse"
@@ -2231,9 +2248,10 @@
       <div class="integration-card">
         <div class="integration-header">
           <span class="integration-name">Claude Desktop</span>
-          <span class="integration-path">claude_desktop_config.json</span>
+          <button class="integration-copy" type="button" data-copy-target="cfg-claude">Copy config</button>
         </div>
-        <pre class="integration-code">{
+        <div class="integration-path">claude_desktop_config.json</div>
+        <pre class="integration-code" id="cfg-claude">{
   "mcpServers": {
     "stash": {
       "url": "http://localhost:8080/sse"
@@ -2245,9 +2263,10 @@
       <div class="integration-card">
         <div class="integration-header">
           <span class="integration-name">OpenCode</span>
-          <span class="integration-path">~/.config/opencode/config.json</span>
+          <button class="integration-copy" type="button" data-copy-target="cfg-opencode">Copy config</button>
         </div>
-        <pre class="integration-code">{
+        <div class="integration-path">~/.config/opencode/config.json</div>
+        <pre class="integration-code" id="cfg-opencode">{
   "mcp": {
     "stash": {
       "type": "remote",
@@ -2261,9 +2280,10 @@
       <div class="integration-card">
         <div class="integration-header">
           <span class="integration-name">Windsurf</span>
-          <span class="integration-path">~/.codeium/windsurf/mcp_config.json</span>
+          <button class="integration-copy" type="button" data-copy-target="cfg-windsurf">Copy config</button>
         </div>
-        <pre class="integration-code">{
+        <div class="integration-path">~/.codeium/windsurf/mcp_config.json</div>
+        <pre class="integration-code" id="cfg-windsurf">{
   "mcpServers": {
     "stash": {
       "url": "http://localhost:8080/sse"
@@ -2916,6 +2936,49 @@ document.getElementById('usage-restart').addEventListener('click', () => {
   runUsageDemo();
 });
 
+function fallbackCopy(text, btn) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch (e) {
+    btn.textContent = 'Failed';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  }
+  document.body.removeChild(ta);
+}
+
+function copyToClipboard(text, btn) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    }).catch(() => fallbackCopy(text, btn));
+  } else {
+    fallbackCopy(text, btn);
+  }
+}
+
+document.querySelectorAll('[data-copy]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    copyToClipboard(btn.getAttribute('data-copy'), btn);
+  });
+});
+
+document.querySelectorAll('[data-copy-target]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.getAttribute('data-copy-target'));
+    if (target) copyToClipboard(target.textContent.trim(), btn);
+  });
+});
 
 </script>
 </body>
