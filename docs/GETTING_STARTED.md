@@ -78,6 +78,8 @@ If tools fail, check `.env`:
 | `STASH_EMBEDDING_MODEL` | Must match `STASH_VECTOR_DIM` (1536 for `text-embedding-3-small`) |
 | `STASH_REASONER_MODEL` | Model used during consolidation |
 
+**Running fully local?** See [LOCAL_OLLAMA.md](LOCAL_OLLAMA.md) — Ollama on the host, no cloud API key.
+
 ## Troubleshooting
 
 **MCP client can't connect**

@@ -19,6 +19,8 @@ That's it. Postgres + pgvector, migrations, MCP server with background consolida
 
 **Next:** [Getting Started guide](docs/GETTING_STARTED.md) — connect your MCP client, run `init` / `remember` / `recall`, and verify everything works.
 
+**Fully local (no cloud API):** [Ollama setup guide](docs/LOCAL_OLLAMA.md) — host Ollama + Docker Compose, private embeddings and reasoner.
+
 ## MCP Client Setup
 
 After `docker compose up`, Stash exposes an MCP server over SSE at:
@@ -81,7 +83,7 @@ Works with any agent that supports MCP over SSE — Claude Desktop, Cursor, Wind
 
 Stash is a cognitive layer between your AI agent and the world. Episodes become facts. Facts become relationships. Relationships become patterns. Patterns become wisdom.
 
-An 8-stage consolidation pipeline turns raw observations into structured knowledge — facts, relationships, causal links, goal tracking, failure patterns, hypothesis verification, and confidence decay. Each stage only processes new data since the last run.
+A 9-stage consolidation pipeline turns raw observations into structured knowledge — facts, relationships, causal links, patterns, contradictions, goal tracking, failure patterns, and hypothesis verification. Each stage only processes new data since the last run.
 
 ## Learn More
 
