@@ -80,6 +80,18 @@ If tools fail, check `.env`:
 
 **Running fully local?** See [LOCAL_OLLAMA.md](LOCAL_OLLAMA.md) — Ollama on the host, no cloud API key.
 
+**Using Atlas Cloud?** Stash already supports it through the OpenAI-compatible API:
+
+```bash
+STASH_OPENAI_API_KEY=your-atlas-cloud-api-key
+STASH_OPENAI_BASE_URL=https://api.atlascloud.ai/v1
+STASH_EMBEDDING_MODEL=text-embedding-3-small
+STASH_REASONER_MODEL=deepseek-ai/DeepSeek-V3-0324
+STASH_VECTOR_DIM=1536
+```
+
+Atlas Cloud docs: [https://www.atlascloud.ai/docs](https://www.atlascloud.ai/docs)
+
 ## Troubleshooting
 
 **MCP client can't connect**
@@ -96,6 +108,12 @@ If tools fail, check `.env`:
 
 - Needs episodes via `remember` first.
 - Check logs: `docker compose logs stash`.
+
+**Provider returns auth or model errors**
+
+- Confirm `STASH_OPENAI_BASE_URL` points to the correct provider endpoint.
+- Confirm the embedding and reasoner model names match what your provider exposes.
+- Atlas Cloud users should use `https://api.atlascloud.ai/v1` and a valid API key.
 
 ## Next steps
 

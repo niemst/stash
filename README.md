@@ -6,6 +6,8 @@ Every LLM starts every conversation from zero. Stash gives your agent persistent
 
 Open source. Self-hosted. Works with any MCP-compatible agent.
 
+Stash also works with OpenAI-compatible providers such as OpenAI, OpenRouter, [Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=stash), local Ollama, and other compatible gateways.
+
 ## Quick Start
 
 ```bash
@@ -20,6 +22,30 @@ That's it. Postgres + pgvector, migrations, MCP server with background consolida
 **Next:** [Getting Started guide](docs/GETTING_STARTED.md) — connect your MCP client, run `init` / `remember` / `recall`, and verify everything works.
 
 **Fully local (no cloud API):** [Ollama setup guide](docs/LOCAL_OLLAMA.md) — host Ollama + Docker Compose, private embeddings and reasoner.
+
+## Atlas Cloud
+
+> [Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=stash) is a full-modal AI inference platform that gives developers a single AI API to access video generation, image generation, and LLM APIs. Instead of managing multiple vendor integrations, you connect once and get unified access to 300+ curated models across all modalities.
+>
+> Check out Atlas Cloud's coding plan promotion: [https://www.atlascloud.ai/console/coding-plan](https://www.atlascloud.ai/console/coding-plan)
+
+Stash already supports Atlas Cloud through its OpenAI-compatible API. Set your `.env` like this:
+
+```bash
+STASH_OPENAI_API_KEY=your-atlas-cloud-api-key
+STASH_OPENAI_BASE_URL=https://api.atlascloud.ai/v1
+STASH_EMBEDDING_MODEL=text-embedding-3-small
+STASH_REASONER_MODEL=deepseek-ai/DeepSeek-V3-0324
+STASH_VECTOR_DIM=1536
+```
+
+Atlas Cloud works well here because Stash only needs:
+
+- an embeddings model for vectorization
+- a chat-capable reasoning model for consolidation
+- an OpenAI-compatible base URL and API key
+
+See [Getting Started](docs/GETTING_STARTED.md) for a fuller configuration checklist.
 
 ## MCP Client Setup
 
@@ -77,7 +103,7 @@ Point any MCP-compatible client at that URL. Example configs:
 }
 ```
 
-Works with any agent that supports MCP over SSE — Claude Desktop, Cursor, Windsurf, Cline, Continue, OpenAI Agents, Ollama, OpenRouter, and more.
+Works with any agent that supports MCP over SSE — Claude Desktop, Cursor, Windsurf, Cline, Continue, OpenAI Agents, Ollama, OpenRouter, Atlas Cloud-backed setups, and more.
 
 ## What It Does
 
