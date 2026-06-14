@@ -6,7 +6,12 @@ Every LLM starts every conversation from zero. Stash gives your agent persistent
 
 Open source. Self-hosted. Works with any MCP-compatible agent.
 
-Stash also works with OpenAI-compatible providers such as OpenAI, OpenRouter, [Atlas Cloud](https://www.atlascloud.ai/?utm_source=github&utm_medium=link&utm_campaign=stash), local Ollama, and other compatible gateways.
+---
+
+> **Don't want to self-host?**
+> **[usestash.io](https://usestash.io)** is the hosted cloud version — sign in with Google, copy one MCP URL, and you're done. Free to start.
+
+---
 
 ## Quick Start
 
