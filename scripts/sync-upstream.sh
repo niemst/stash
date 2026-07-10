@@ -26,9 +26,12 @@ if [ "$BRANCH" != "main" ]; then
     exit 0
 fi
 
-# Rebase our changes on top of upstream
-git rebase upstream/main
+# Rebase our changes on top of upstream (--autostash tolerates a dirty tree)
+git rebase --autostash upstream/main
 
-git push origin main --force-with-lease
+# Pin niemst's token on the push so a shared-gh-account race (another process
+# flipping the active account) can't push as the wrong user and 403.
+PUSH_TOKEN=$(gh auth token -u niemst)
+git push "https://x-access-token:${PUSH_TOKEN}@github.com/niemst/stash.git" main --force-with-lease
 
 echo "$LOG_PREFIX $(date -u +%Y-%m-%dT%H:%M:%SZ) synced $(git rev-parse --short HEAD)"
