@@ -23,11 +23,10 @@ services:
     command: ["mcp", "serve", "--host", "0.0.0.0", "--port", "18080", "--with-consolidation"]
     ports:
       - "18080:18080"
-    # host.docker.internal is a Docker Desktop name; under Dory the engine runs
-    # in a VM, so host-gateway points at the VM, not macOS. The macOS host is
-    # the vmnet gateway (192.168.64.1). Override via DORY_HOST_IP if it changes.
+    # host.docker.internal reaches the macOS host (embed server); host-gateway
+    # keeps the name working on engines that do not define it.
     extra_hosts:
-      - "host.docker.internal:${DORY_HOST_IP:-192.168.64.1}"
+      - "host.docker.internal:host-gateway"
     environment:
       # Required
       STASH_POSTGRES_DSN: postgresql://stash:stash_dev_password@postgres:5432/stash?sslmode=disable
